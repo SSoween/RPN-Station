@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="92" fill="#0b1026"/>
+  <rect x="38" y="38" width="436" height="436" rx="66" fill="none" stroke="#33e6ff" stroke-width="12"/>
+  <circle cx="256" cy="138" r="26" fill="#33e6ff"/>
+  <text x="256" y="300" text-anchor="middle" font-family="monospace" font-size="150" font-weight="bold" fill="#ffb23e">RPN</text>
+</svg>
