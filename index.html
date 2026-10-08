@@ -72,7 +72,7 @@ body::after{
 .line{display:flex; align-items:baseline; gap:12px; padding:7px 4px}
 .line-idx{color:var(--violet); font-weight:800; font-size:clamp(13px,3.4vw,17px); min-width:2.4ch; text-align:right; letter-spacing:.04em}
 .line-val{color:var(--ink); font-weight:700; font-size:clamp(20px,5vw,28px); letter-spacing:.02em; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.line.top .line-val{color:var(--gold)}
+.line.recent .line-val{color:var(--gold)}
 .entry{
   flex:0 0 auto;
   display:flex; align-items:center; gap:10px;
@@ -230,13 +230,13 @@ body::after{
     <button class="sheet-item toggle" data-act="help" type="button">Raccourcis</button>
     <div class="sheet-help" id="sheetHelp" hidden>
       <div class="sh"><span class="sk">0–9 · .</span><span class="sh-val">saisir un nombre</span></div>
-      <div class="sh"><span class="sk">↵</span><span class="sh-val">valider (ajout à la pile)</span></div>
-      <div class="sh"><span class="sk">+ − × ÷</span><span class="sh-val">opérer (RPN)</span></div>
+      <div class="sh"><span class="sk">↵</span><span class="sh-val">valider (devient 1:, le reste monte)</span></div>
+      <div class="sh"><span class="sk">+ − × ÷</span><span class="sh-val">opérer sur les 2 du bas</span></div>
       <div class="sh"><span class="sk">C</span><span class="sh-val">effacement complet</span></div>
       <div class="sh"><span class="sk">⌫</span><span class="sh-val">effacement caract. par caract.</span></div>
       <div class="sh"><span class="sk">±</span><span class="sh-val">changer le signe</span></div>
     </div>
-    <div class="sheet-version">Deep Space · RPN v1.0</div>
+    <div class="sheet-version">Deep Space · RPN v1.1</div>
   </div>
 </div>
 
@@ -274,10 +274,10 @@ body::after{
     var inner=el.linesInner;
     inner.innerHTML='';
     var n=stack.length;
-    for(var i=n-1;i>=0;i--){
+    for(var i=0;i<n;i++){
       var row=document.createElement('div');
-      row.className='line'+(i===n-1?' top':'');
-      var idx=document.createElement('span'); idx.className='line-idx'; idx.textContent=(i+1)+':';
+      row.className='line'+(i===n-1?' recent':'');
+      var idx=document.createElement('span'); idx.className='line-idx'; idx.textContent=(n-i)+':';
       var val=document.createElement('span'); val.className='line-val'; val.textContent=fmt(stack[i]);
       row.appendChild(idx); row.appendChild(val);
       inner.appendChild(row);
@@ -285,7 +285,7 @@ body::after{
     el.entryVal.textContent = error?'ERR':(entry===''?'…':entry);
     el.entryEl.classList.toggle('err',error);
     el.stackCount.textContent='STACK '+n;
-    el.linesWrap.scrollTop = 0;
+    el.linesWrap.scrollTop = el.linesWrap.scrollHeight;
   }
 
   function flashError(){ error=true; render(); }
