@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=match" />
 <meta name="theme-color" content="#0b1026" />
-<title>RPN Station · Calculateur RPN hors-ligne</title>
+<title>Deep Space · Calculateur RPN hors-ligne</title>
 <link rel="manifest" href="manifest.json" />
 <link rel="icon" href="icon.svg" />
 <style>
@@ -17,15 +17,13 @@
   --mono:'SF Mono','Fira Code','JetBrains Mono',Consolas,monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%}
+html,body{height:100%;overflow:hidden}
 body{
   font-family:var(--mono); color:var(--ink);
   background:
     radial-gradient(1200px 640px at 85% -12%, rgba(51,230,255,.12), transparent 60%),
     radial-gradient(900px 520px at 8% 112%, rgba(180,139,255,.12), transparent 60%),
     var(--bg);
-  min-height:100dvh;
-  display:flex; justify-content:center;
 }
 body::after{
   content:""; position:fixed; inset:0; pointer-events:none;
@@ -34,338 +32,364 @@ body::after{
     radial-gradient(120% 90% at 50% 50%, transparent 52%, rgba(5,6,15,.72));
 }
 .app{
-  width:min(100%, 820px); margin:0 auto;
-  padding:clamp(10px,2vw,18px);
-  display:flex; flex-direction:column; gap:clamp(8px,1.6vw,12px);
-  min-height:100dvh; justify-content:center;
+  height:100vh; height:100dvh;
+  display:flex; flex-direction:column;
   -webkit-font-smoothing:antialiased;
 }
+
+/* ---------- en-tête ---------- */
 .bar{
-  display:flex; justify-content:space-between; align-items:center;
-  font-weight:800; letter-spacing:.18em; text-transform:uppercase;
-  font-size:clamp(12px,2vw,15px); color:var(--cyan);
+  flex:0 0 auto;
+  display:flex; justify-content:space-between; align-items:center; gap:10px;
+  font-weight:800; letter-spacing:.14em; text-transform:uppercase;
+  font-size:clamp(14px,3.4vw,18px); color:var(--cyan);
+  padding:12px 14px 6px;
 }
-.brand{display:flex; align-items:center; gap:9px}
+.brand{display:flex; align-items:center; gap:10px}
 .brand-star{color:var(--gold); animation:pulse 2.6s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
-.status{font-size:11px; letter-spacing:.14em; color:var(--muted)}
+.bar-right{display:flex; align-items:center; gap:10px}
+.status{font-size:10px; letter-spacing:.14em; color:var(--muted); text-transform:uppercase}
 .status.on{color:var(--green)} .status.off{color:var(--red)}
+.install-btn{
+  background:var(--cyan); color:#05101f;
+  padding:6px 12px; border:none; border-radius:8px; cursor:pointer;
+  font-family:var(--mono); font-size:10px; font-weight:800; letter-spacing:.06em;
+  box-shadow:0 0 14px rgba(51,230,255,.5);
+}
 
+/* ---------- affichage (pile RPN + entrée) ---------- */
 .display{
-  min-height:62px; display:flex; align-items:flex-end; gap:8px;
-  overflow-x:auto; padding:14px 16px 16px;
-  background:linear-gradient(180deg,var(--panel),var(--panel2));
+  flex:1 1 0; min-height:0;
+  display:flex; flex-direction:column;
   border:1px solid var(--line); border-left:4px solid var(--cyan);
-  box-shadow:inset 0 -22px 26px rgba(5,6,15,.55), 0 0 0 1px #0004;
+  background:linear-gradient(180deg,var(--panel),var(--panel2));
+  box-shadow:inset 0 -22px 26px rgba(5,6,15,.55);
+  padding:8px 0;
 }
-.chip{
-  font-size:clamp(20px,4vw,28px); font-weight:700;
-  padding:3px 11px; text-align:center; min-width:36px; letter-spacing:.02em;
+.lines-wrap{flex:1 1 0; min-height:0; display:flex; flex-direction:column; overflow-y:auto}
+.lines-inner{display:flex; flex-direction:column; width:100%; gap:5px; padding:6px 14px 8px}
+.line{display:flex; align-items:baseline; gap:12px; padding:7px 4px}
+.line-idx{color:var(--violet); font-weight:800; font-size:clamp(13px,3.4vw,17px); min-width:2.4ch; text-align:right; letter-spacing:.04em}
+.line-val{color:var(--ink); font-weight:700; font-size:clamp(20px,5vw,28px); letter-spacing:.02em; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.line.top .line-val{color:var(--gold)}
+.entry{
+  flex:0 0 auto;
+  display:flex; align-items:center; gap:10px;
+  padding:12px 14px; border-top:1px solid var(--line);
+  font-family:var(--mono);
 }
-.chip.result{color:var(--gold); box-shadow:0 0 18px rgba(255,178,62,.35); border-bottom:3px solid var(--gold)}
-.chip.entry{color:var(--cyan); border-bottom:3px dashed var(--cyan-dim); animation:caret 1s steps(1) infinite}
-@keyframes caret{50%{opacity:.35}}
-.chip.empty{color:var(--muted)}
-.chip.err{color:var(--red); font-size:clamp(26px,6vw,40px); letter-spacing:.2em}
+.entry-caret{color:var(--cyan-dim)}
+.entry-val{color:var(--cyan); font-size:clamp(20px,5vw,28px); font-weight:800; min-width:1ch; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.entry.err{background:rgba(255,90,110,.08)}
+.entry.err .entry-val,.entry.err .entry-caret{color:var(--red)}
+
+/* ---------- barre sous-affichage ---------- */
 .subbar{
-  display:flex; justify-content:space-between; flex-wrap:wrap;
-  color:var(--muted); font-size:10px; letter-spacing:.14em; text-transform:uppercase;
-  padding:6px 14px 0;
+  flex:0 0 auto;
+  display:flex; justify-content:space-between; align-items:center;
+  font-size:10px; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--muted); padding:4px 14px 4px;
 }
-#memIndicator{color:var(--cyan)}
-.hint{color:var(--gold)}
 
-.deck{display:grid; grid-template-columns:1fr; gap:clamp(8px,1.6vw,12px)}
-@media (min-width:720px){ .deck{grid-template-columns:1.05fr .95fr} }
-.memory,.keypad{
-  border:1px solid var(--line); background:linear-gradient(180deg,var(--panel),var(--panel2));
-  border-left:3px solid var(--violet);
+/* ---------- légende (si place) ---------- */
+.help{
+  flex:0 0 auto;
+  display:flex; flex-wrap:wrap; justify-content:center; gap:6px 16px;
+  font-size:9px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--muted); padding:4px 14px 2px;
 }
-.keypad{border-left:3px solid var(--cyan)}
-.panel-title{
-  display:flex; justify-content:space-between; gap:8px;
-  font-size:10px; letter-spacing:.2em; text-transform:uppercase;
-  color:var(--violet); padding:10px 12px; border-bottom:1px dashed var(--line);
-}
-.mems{display:flex; flex-direction:column; gap:2px; padding:6px}
-.memrow{
-  display:grid; grid-template-columns:46px 1fr auto; align-items:center; gap:8px;
-  padding:8px 10px; font-family:var(--mono);
-  background:transparent; border:1px solid transparent; border-left:3px solid var(--muted);
-  color:var(--ink); cursor:pointer; font-size:clamp(14px,2.4vw,17px); text-align:left;
-}
-.memrow:hover{background:rgba(51,230,255,.06)}
-.memrow.active{
-  border-color:var(--cyan); border-left-color:var(--cyan);
-  background:linear-gradient(90deg, rgba(51,230,255,.12), rgba(51,230,255,.02));
-  box-shadow:inset 0 0 18px rgba(51,230,255,.15);
-}
-.memrow .idx{color:var(--violet); font-weight:800; letter-spacing:.1em}
-.memrow.active .idx{color:var(--cyan)}
-.memrow .val{text-align:right; letter-spacing:.04em; word-break:break-all}
-.memrow .val.empty{color:var(--muted); font-size:12px}
-.memrow .clr{
-  align-self:center; border:1px solid var(--line); color:var(--muted);
-  font-size:12px; width:26px; height:26px; border-radius:6px;
-  background:transparent; cursor:pointer; line-height:1;
-}
-.memrow .clr:hover{color:var(--red); border-color:var(--red)}
+.help b{color:var(--cyan); font-weight:800}
+@media (max-height: 720px){ .help{display:none} }
+@media (max-width: 360px){ .status{display:none} }
 
-.keys{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; padding:12px}
+/* ---------- clavier ---------- */
+.keys{
+  flex:0 0 auto;
+  display:grid; grid-template-columns:repeat(4,1fr);
+  gap:8px; padding:10px 14px 14px;
+}
 .key{
-  font-family:var(--mono); font-size:clamp(18px,3.4vw,24px); font-weight:700;
-  min-height:52px; display:flex; align-items:center; justify-content:center;
-  border:1px solid var(--line); border-radius:8px;
-  background:linear-gradient(180deg,var(--panel2), #161c40);
-  color:var(--ink); cursor:pointer;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.04), 0 2px 8px rgba(0,0,0,.35);
-  transition:transform .08s, box-shadow .12s, background .12s;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  min-height:46px;
+  border:1px solid var(--line); border-radius:12px; cursor:pointer;
+  background:linear-gradient(180deg,var(--panel2),#161c40);
+  color:var(--ink); font-family:var(--mono); font-size:clamp(20px,5vw,26px); font-weight:800;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04), 0 2px 6px rgba(0,0,0,.35);
 }
 .key:active{transform:translateY(2px)}
-.key .small{font-size:9px; display:block; opacity:.45; letter-spacing:.14em; text-transform:uppercase}
+.key .small{font-size:8px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; opacity:.55; line-height:1}
 .key.op{color:var(--cyan); border-color:var(--cyan-dim)}
 .key.op:hover{background:rgba(51,230,255,.1); box-shadow:0 0 14px rgba(51,230,255,.3)}
-.key.danger{color:var(--red); border-color:rgba(255,90,110,.5)}
-.key.danger:hover{background:rgba(255,90,110,.12)}
-.key.mem{color:var(--gold); border-color:rgba(255,178,62,.5)}
-.key.mem:hover{background:rgba(255,178,62,.12); box-shadow:0 0 14px rgba(255,178,62,.3)}
 .key.e{color:var(--green); border-color:rgba(90,255,192,.5)}
-.key.e:hover{background:rgba(90,255,192,.12)}
+.key.e:hover{background:rgba(90,255,192,.1)}
+.key.danger{color:var(--red); border-color:rgba(255,90,110,.5)}
+.key.danger:hover{background:rgba(255,90,110,.1)}
+.key.sign{color:var(--violet); border-color:rgba(180,139,255,.5)}
+.key.sign:hover{background:rgba(180,139,255,.1)}
+.key.menu{color:var(--muted)}
+.key.menu:hover{color:var(--violet); border-color:var(--violet)}
 
-.help{display:flex; flex-wrap:wrap; gap:6px 16px; font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted)}
-.help b{color:var(--cyan); font-weight:800}
-.install-btn{
-  position:fixed; right:14px; bottom:16px; z-index:50;
-  background:var(--cyan); color:#05101f;
-  padding:10px 14px; border-radius:8px; font-weight:800; letter-spacing:.08em;
-  cursor:pointer; box-shadow:0 0 20px rgba(51,230,255,.5);
+/* ---------- menu (sheet) ---------- */
+.sheet{position:fixed; inset:0; z-index:100; display:flex; align-items:flex-end}
+.sheet[hidden]{display:none}
+.sheet-backdrop{position:absolute; inset:0; background:rgba(5,6,15,.55)}
+.sheet-body{
+  position:relative; width:100%; max-height:58dvh; overflow-y:auto;
+  background:var(--panel); border-top:2px solid var(--cyan);
+  padding:16px; box-shadow:0 -10px 30px rgba(0,0,0,.4);
+  display:flex; flex-direction:column; gap:10px;
 }
+.sheet-head{display:flex; justify-content:space-between; align-items:center; font-size:10px; letter-spacing:.22em; text-transform:uppercase; color:var(--violet)}
+.sheet-close{background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; line-height:1}
+.sheet-close:hover{color:var(--red)}
+.sheet-item{
+  font-family:var(--mono); font-size:clamp(15px,3.4vw,18px); font-weight:700;
+  text-align:left; width:100%; padding:12px 14px;
+  border:1px solid var(--line); border-radius:10px; cursor:pointer;
+  background:linear-gradient(180deg,var(--panel2),#161c40); color:var(--ink);
+}
+.sheet-item:hover{border-color:var(--cyan-dim); background:rgba(51,230,255,.06)}
+.sheet-item.action{color:var(--red); border-color:rgba(255,90,110,.5)}
+.sheet-help{font-size:clamp(13px,3vw,15px); line-height:1.75; color:var(--muted); padding:12px; border:1px dashed var(--line); border-radius:10px; background:#0d1230}
+.sh{display:flex; gap:10px}
+.sk{color:var(--cyan); font-weight:800; min-width:4ch; text-align:right}
+.sh-val{text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.sheet-version{font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); text-align:center}
 </style>
 </head>
 <body>
 <div class="app">
   <header class="bar">
-    <div class="brand"><span class="brand-star">✦</span>RPN·STATION</div>
-    <div class="status" id="status" aria-live="polite">● …</div>
+    <div class="brand"><span class="brand-star">✦</span>DEEP&nbsp;SPACE</div>
+    <div class="bar-right">
+      <button class="install-btn" id="installBtn" hidden>INSTALL</button>
+      <div class="status" id="status" aria-live="polite">● …</div>
+    </div>
   </header>
 
-  <div>
-    <div class="display" id="display" aria-live="polite"></div>
-    <div class="subbar">
-      <span>RPN</span>
-      <span class="hint" id="hint"></span>
-      <span>MEM&nbsp;·&nbsp;<span id="memIndicator">M1</span></span>
-      <span id="stackCount">STACK 0</span>
+  <div class="display" id="display">
+    <div class="lines-wrap" id="linesWrap">
+      <div class="lines-inner" id="linesInner"></div>
+    </div>
+    <div class="entry" id="entry">
+      <span class="entry-caret">▸</span>
+      <span class="entry-val" id="entryVal"></span>
     </div>
   </div>
 
-  <main class="deck">
-    <aside class="memory" aria-label="Memories 1 to 8">
-      <div class="panel-title"><span>MEMORIES</span><span>1–8</span></div>
-      <div class="mems" id="mems"></div>
-    </aside>
+  <div class="subbar">
+    <span>RPN</span>
+    <span id="stackCount">STACK 0</span>
+  </div>
 
-    <section class="keypad" aria-label="Keypad">
-      <div class="keys" id="keys">
-        <button class="key" data-a="digit" data-v="7" type="button">7</button>
-        <button class="key" data-a="digit" data-v="8" type="button">8</button>
-        <button class="key" data-a="digit" data-v="9" type="button">9</button>
-        <button class="key danger" data-a="c" type="button">C<span class="small">all</span></button>
-        <button class="key" data-a="digit" data-v="4" type="button">4</button>
-        <button class="key" data-a="digit" data-v="5" type="button">5</button>
-        <button class="key" data-a="digit" data-v="6" type="button">6</button>
-        <button class="key danger" data-a="bs" type="button">⌫<span class="small">char</span></button>
-        <button class="key" data-a="digit" data-v="1" type="button">1</button>
-        <button class="key" data-a="digit" data-v="2" type="button">2</button>
-        <button class="key" data-a="digit" data-v="3" type="button">3</button>
-        <button class="key op" data-a="+" type="button">+</button>
-        <button class="key" data-a="digit" data-v="0" type="button">0</button>
-        <button class="key" data-a="dot" type="button">.</button>
-        <button class="key op" data-a="x" type="button">×</button>
-        <button class="key op" data-a="-" type="button">−</button>
-        <button class="key e" data-a="e" type="button">E<span class="small">enter</span></button>
-        <button class="key op" data-a="div" type="button">÷</button>
-        <button class="key mem" data-a="store" type="button">M<span class="small">store</span></button>
-        <button class="key mem" data-a="recall" type="button">R<span class="small">recall</span></button>
-      </div>
-    </section>
-  </main>
+  <div class="help">
+    <span><b>↵</b> enter</span>
+    <span><b>C</b> clear</span>
+    <span><b>⌫</b> char</span>
+    <span><b>±</b> sign</span>
+    <span><b>…</b> menu</span>
+  </div>
 
-  <footer class="help">
-    <span><b>C</b> clear all</span>
-    <span><b>⌫</b> char by char</span>
-    <span><b>E</b> enter/commit number</span>
-    <span><b>M</b> store to MEM</span>
-    <span><b>R</b> recall MEM</span>
-    <span><b>×</b> mult · <b>÷</b> div</span>
-    <span>click a memory row to select it · its × clears it</span>
-  </footer>
+  <div class="keys" id="keys">
+    <button class="key sign"  data-a="pm"   type="button">±<span class="small">sign</span></button>
+    <button class="key danger" data-a="bs"   type="button">⌫<span class="small">char</span></button>
+    <button class="key danger" data-a="c"    type="button">C<span class="small">all</span></button>
+    <button class="key menu"   data-a="menu" type="button">…<span class="small">menu</span></button>
+
+    <button class="key"        data-a="digit" data-v="7" type="button">7</button>
+    <button class="key"        data-a="digit" data-v="8" type="button">8</button>
+    <button class="key"        data-a="digit" data-v="9" type="button">9</button>
+    <button class="key op"     data-a="div"  type="button">÷<span class="small">div</span></button>
+
+    <button class="key"        data-a="digit" data-v="4" type="button">4</button>
+    <button class="key"        data-a="digit" data-v="5" type="button">5</button>
+    <button class="key"        data-a="digit" data-v="6" type="button">6</button>
+    <button class="key op"     data-a="mult" type="button">×<span class="small">mul</span></button>
+
+    <button class="key"        data-a="digit" data-v="1" type="button">1</button>
+    <button class="key"        data-a="digit" data-v="2" type="button">2</button>
+    <button class="key"        data-a="digit" data-v="3" type="button">3</button>
+    <button class="key op"     data-a="sub"  type="button">−<span class="small">sub</span></button>
+
+    <button class="key"        data-a="digit" data-v="0" type="button">0</button>
+    <button class="key"        data-a="dot"  type="button">.<span class="small">dec</span></button>
+    <button class="key e"      data-a="enter" type="button">↵<span class="small">enter</span></button>
+    <button class="key op"     data-a="add"  type="button">+<span class="small">add</span></button>
+  </div>
 </div>
 
-<button class="install-btn" id="installBtn" type="button" hidden>INSTALL PWAs</button>
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet-backdrop" id="sheetBackdrop"></div>
+  <div class="sheet-body">
+    <div class="sheet-head">
+      <span>MENU</span>
+      <button id="sheetClose" class="sheet-close" type="button">✕</button>
+    </div>
+    <button class="sheet-item action" data-act="clear" type="button">Clear all</button>
+    <button class="sheet-item toggle" data-act="help" type="button">Raccourcis</button>
+    <div class="sheet-help" id="sheetHelp" hidden>
+      <div class="sh"><span class="sk">0–9 · .</span><span class="sh-val">saisir un nombre</span></div>
+      <div class="sh"><span class="sk">↵</span><span class="sh-val">valider (ajout à la pile)</span></div>
+      <div class="sh"><span class="sk">+ − × ÷</span><span class="sh-val">opérer (RPN)</span></div>
+      <div class="sh"><span class="sk">C</span><span class="sh-val">effacement complet</span></div>
+      <div class="sh"><span class="sk">⌫</span><span class="sh-val">effacement caract. par caract.</span></div>
+      <div class="sh"><span class="sk">±</span><span class="sh-val">changer le signe</span></div>
+    </div>
+    <div class="sheet-version">Deep Space · RPN v1.0</div>
+  </div>
+</div>
 
 <script>
 (function(){
   "use strict";
   var stack=[];
   var entry='';
-  var active=0;
-  var mem=[null,null,null,null,null,null,null,null];
   var error=false;
 
   var el={
-    display:document.getElementById('display'),
-    hint:document.getElementById('hint'),
-    mems:document.getElementById('mems'),
-    memIndicator:document.getElementById('memIndicator'),
+    linesWrap:document.getElementById('linesWrap'),
+    linesInner:document.getElementById('linesInner'),
+    entryEl:document.getElementById('entry'),
+    entryVal:document.getElementById('entryVal'),
     stackCount:document.getElementById('stackCount'),
     status:document.getElementById('status'),
-    installBtn:document.getElementById('installBtn')
+    installBtn:document.getElementById('installBtn'),
+    sheet:document.getElementById('sheet'),
+    sheetBackdrop:document.getElementById('sheetBackdrop'),
+    sheetClose:document.getElementById('sheetClose'),
+    helpPanel:document.getElementById('sheetHelp')
   };
 
   function fmt(n){
     if(n===null||n===undefined) return '';
     if(!isFinite(n)) return 'ERR';
     if(Math.abs(n)>=1e16 || Math.abs(n)<1e-15) return n.toExponential(3);
-    return String(+parseFloat(n.toPrecision(12)));
+    var s = String(+parseFloat(n.toPrecision(12)));
+    if(s==='-0') s='0';
+    return s;
   }
 
-  function renderDisplay(){
-    el.display.innerHTML='';
-    var add=function(t,c){var d=document.createElement('div');d.className='chip '+c;d.textContent=t;el.display.appendChild(d);};
-    if(error){ add('ERR','err'); return; }
-    el.stackCount.textContent='STACK '+stack.length;
-    el.hint.textContent = entry!=='' ? 'ENTER ▸' : '';
-    if(stack.length===0 && entry===''){ add('0','empty'); return; }
-    for(var i=0;i<stack.length;i++){
-      var top = (i===stack.length-1 && entry==='');
-      add(fmt(stack[i]), top?'result':'');
+  function render(){
+    var inner=el.linesInner;
+    inner.innerHTML='';
+    var n=stack.length;
+    for(var i=0;i<n;i++){
+      var row=document.createElement('div');
+      row.className='line'+(i===n-1?' top':'');
+      var idx=document.createElement('span'); idx.className='line-idx'; idx.textContent=(i+1)+':';
+      var val=document.createElement('span'); val.className='line-val'; val.textContent=fmt(stack[i]);
+      row.appendChild(idx); row.appendChild(val);
+      inner.appendChild(row);
     }
-    if(entry!==''){ add(entry,'entry'); }
-  }
-
-  function renderMem(){
-    el.mems.innerHTML='';
-    for(var i=0;i<8;i++){
-      (function(idx){
-        var row=document.createElement('button');
-        row.type='button';
-        row.className='memrow'+(idx===active?' active':'');
-        row.title='M'+(idx+1);
-        var idxEl=document.createElement('span'); idxEl.className='idx'; idxEl.textContent='M'+(idx+1);
-        var val=document.createElement('span');
-        val.className='val'+(mem[idx]==null?' empty':'');
-        val.textContent= mem[idx]==null ? '—' : fmt(mem[idx]);
-        var clr=document.createElement('span');
-        clr.className='clr'; clr.textContent='×';
-        row.appendChild(idxEl); row.appendChild(val); row.appendChild(clr);
-        row.addEventListener('click',function(ev){
-          if(ev.target===clr){ mem[idx]=null; renderMem(); return; }
-          active=idx; renderMem();
-        });
-        el.mems.appendChild(row);
-      })(i);
+    el.entryVal.textContent = error?'ERR':(entry===''?'…':entry);
+    el.entryEl.classList.toggle('err',error);
+    el.stackCount.textContent='STACK '+n;
+    if(el.linesWrap.scrollHeight>el.linesWrap.clientHeight+2){
+      el.linesWrap.scrollTop=el.linesWrap.scrollHeight;
     }
-    el.memIndicator.textContent='M'+(active+1);
   }
 
-  function showError(){ error=true; renderDisplay(); }
-  function resetErr(){ if(error){ error=false; renderDisplay(); } }
+  function flashError(){ error=true; render(); }
+  function resetError(){ error=false; }
 
   function keyInput(ch){
-    resetErr();
-    if(ch==='.' ){
-      if(entry.includes('.')) return;
-      if(entry==='') entry='0.'; else entry+='.';
+    resetError();
+    if(ch==='.'){
+      if(entry.indexOf('.')>=0) return;
+      entry = (entry===''?'0.':entry)+ch;
     } else {
       if(entry===''){ entry=ch; }
       else if(entry==='0'){ entry=ch; }
+      else if(entry==='-0'){ entry='-'+ch; }
       else { entry+=ch; }
     }
-    renderDisplay();
+    render();
   }
 
   function commitEntry(){
-    resetErr();
-    if(entry==='') return;
+    if(entry===''){ resetError(); return; }
     var n=parseFloat(entry);
-    if(isNaN(n)) return;
-    stack.push(n); entry='';
-    renderDisplay();
+    if(!isNaN(n)){ stack.push(n); entry=''; resetError(); render(); }
+    else { resetError(); }
   }
 
-  function applyOp(op){
-    resetErr();
-    commitEntry();
-    if(stack.length<2){ showError(); return; }
-    var b=stack.pop(), a=stack.pop();
-    if(op==='/' ){ if(b===0){ stack.push(a); showError(); return; } }
+  function doOp(op){
+    if(entry!==''){ commitEntry(); }
+    resetError();
+    if(stack.length<2){ flashError(); return; }
+    var b=stack[stack.length-1];
+    var a=stack[stack.length-2];
+    if(op==='div' && b===0){ flashError(); return; }
     var r;
-    if(op==='+') r=a+b;
-    else if(op==='-') r=a-b;
-    else if(op==='*') r=a*b;
+    if(op==='add') r=a+b;
+    else if(op==='sub') r=a-b;
+    else if(op==='mult') r=a*b;
     else r=a/b;
+    stack.pop(); stack.pop();
     stack.push(r);
-    renderDisplay();
+    render();
   }
 
-  function clearAll(){ stack=[]; entry=''; error=false; renderDisplay(); }
+  function clearAll(){ stack=[]; entry=''; resetError(); render(); }
 
   function backspace(){
-    resetErr();
-    if(entry.length>0){ entry=entry.slice(0,-1); if(entry==='.') entry=''; }
-    renderDisplay();
+    resetError();
+    if(entry.length>0){ entry=entry.slice(0,-1); }
+    if(entry==='.'){ entry=''; }
+    render();
   }
 
-  function storeMem(){
-    resetErr();
-    var v=null;
-    if(entry!==''){ v=parseFloat(entry); }
-    else if(stack.length){ v=stack[stack.length-1]; }
-    if(v!==null && !isNaN(v)){ mem[active]=v; }
-    renderMem();
+  function toggleSign(){
+    resetError();
+    if(entry===''){ return; }
+    entry = (entry.charAt(0)==='-') ? entry.slice(1) : '-'+entry;
+    render();
   }
-
-  function recallMem(){
-    resetErr();
-    var v=mem[active];
-    if(v===null||v===undefined) return;
-    stack.push(v); entry='';
-    renderDisplay();
-  }
-
-  function moveActive(dir){ active=(active+dir+8)%8; renderMem(); }
 
   document.getElementById('keys').addEventListener('click',function(e){
     var btn=e.target.closest('.key'); if(!btn) return;
     var a=btn.dataset.a;
-    if(a==='digit') keyInput(btn.dataset.v);
-    else if(a==='dot') keyInput('.');
-    else if(a==='+') applyOp('+');
-    else if(a==='-') applyOp('-');
-    else if(a==='x') applyOp('*');
-    else if(a==='div') applyOp('/');
-    else if(a==='c') clearAll();
-    else if(a==='bs') backspace();
-    else if(a==='e') commitEntry();
-    else if(a==='store') storeMem();
-    else if(a==='recall') recallMem();
+    if(a==='digit'){ keyInput(btn.dataset.v); }
+    else if(a==='dot'){ keyInput('.'); }
+    else if(a==='add'){ doOp('add'); }
+    else if(a==='sub'){ doOp('sub'); }
+    else if(a==='mult'){ doOp('mult'); }
+    else if(a==='div'){ doOp('div'); }
+    else if(a==='enter'){ commitEntry(); }
+    else if(a==='c'){ clearAll(); }
+    else if(a==='bs'){ backspace(); }
+    else if(a==='pm'){ toggleSign(); }
+    else if(a==='menu'){ toggleSheet(); }
   });
 
   window.addEventListener('keydown',function(e){
+    if(!el.sheet.hidden){
+      if(e.key==='Escape'){ closeSheet(); }
+      return;
+    }
     var k=e.key;
     if(/[0-9]/.test(k)){ keyInput(k); }
     else if(k==='.'||k===','){ e.preventDefault(); keyInput('.'); }
-    else if(k==='+'){ e.preventDefault(); applyOp('+'); }
-    else if(k==='-'){ e.preventDefault(); applyOp('-'); }
-    else if(k==='*'||k==='/'||k==='x'){ e.preventDefault(); applyOp(k==='x'?'*':'/'); }
+    else if(k==='+'){ e.preventDefault(); doOp('add'); }
+    else if(k==='-'){ e.preventDefault(); doOp('sub'); }
+    else if(k==='*'||k==='/'||k==='x'){ e.preventDefault(); doOp(k==='x'?'mult':'div'); }
     else if(k==='c'||k==='C'){ e.preventDefault(); clearAll(); }
     else if(k==='Backspace'){ e.preventDefault(); backspace(); }
-    else if(k==='m'||k==='M'){ e.preventDefault(); storeMem(); }
-    else if(k==='r'||k==='R'){ e.preventDefault(); recallMem(); }
     else if(k==='Enter'){ e.preventDefault(); commitEntry(); }
-    else if(k==='ArrowUp'){ e.preventDefault(); moveActive(-1); }
-    else if(k==='ArrowDown'){ e.preventDefault(); moveActive(1); }
+  });
+
+  function openSheet(){ el.sheet.hidden=false; }
+  function closeSheet(){ el.sheet.hidden=true; }
+  function toggleSheet(){ el.sheet.hidden ? openSheet() : closeSheet(); }
+  el.sheetClose.addEventListener('click',closeSheet);
+  el.sheetBackdrop.addEventListener('click',closeSheet);
+  el.sheet.addEventListener('click',function(e){
+    if(e.target===el.sheet && !e.target.classList.contains('sheet-body')) return closeSheet();
+    var item=e.target.closest('.sheet-item');
+    if(!item) return;
+    if(item.dataset.act==='clear'){ clearAll(); closeSheet(); }
+    else if(item.dataset.act==='help'){ el.helpPanel.hidden=!el.helpPanel.hidden; }
   });
 
   function setOnline(){
@@ -388,7 +412,7 @@ body::after{
     });
   }
 
-  renderDisplay(); renderMem();
+  render();
 })();
 </script>
 </body>
