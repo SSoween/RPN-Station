@@ -1,0 +1,14 @@
+{
+  "name": "RPN Station",
+  "short_name": "RPN",
+  "description": "Calculateur RPN hors-ligne — thème Space Opera",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b1026",
+  "theme_color": "#33e6ff",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "192x192", "type": "image/svg+xml" },
+    { "src": "./icon.svg", "sizes": "512x512", "type": "image/svg+xml" }
+  ]
+}
