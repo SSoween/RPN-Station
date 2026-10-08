@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=match" />
+<meta name="theme-color" content="#0b1026" />
+<title>RPN Station · Calculateur RPN hors-ligne</title>
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icon.svg" />
+<style>
+:root{
+  --bg:#05060f; --panel:#0b1026; --panel2:#121839;
+  --line:#24306a;
+  --cyan:#33e6ff; --cyan-dim:#157c93;
+  --gold:#ffb23e; --violet:#b48bff; --green:#5affc0; --red:#ff5a6e;
+  --ink:#e6f1ff; --muted:#5b6b8f;
+  --mono:'SF Mono','Fira Code','JetBrains Mono',Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--mono); color:var(--ink);
+  background:
+    radial-gradient(1200px 640px at 85% -12%, rgba(51,230,255,.12), transparent 60%),
+    radial-gradient(900px 520px at 8% 112%, rgba(180,139,255,.12), transparent 60%),
+    var(--bg);
+  min-height:100dvh;
+  display:flex; justify-content:center;
+}
+body::after{
+  content:""; position:fixed; inset:0; pointer-events:none;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 1px, transparent 1px 3px),
+    radial-gradient(120% 90% at 50% 50%, transparent 52%, rgba(5,6,15,.72));
+}
+.app{
+  width:min(100%, 820px); margin:0 auto;
+  padding:clamp(10px,2vw,18px);
+  display:flex; flex-direction:column; gap:clamp(8px,1.6vw,12px);
+  min-height:100dvh; justify-content:center;
+  -webkit-font-smoothing:antialiased;
+}
+.bar{
+  display:flex; justify-content:space-between; align-items:center;
+  font-weight:800; letter-spacing:.18em; text-transform:uppercase;
+  font-size:clamp(12px,2vw,15px); color:var(--cyan);
+}
+.brand{display:flex; align-items:center; gap:9px}
+.brand-star{color:var(--gold); animation:pulse 2.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+.status{font-size:11px; letter-spacing:.14em; color:var(--muted)}
+.status.on{color:var(--green)} .status.off{color:var(--red)}
+
+.display{
+  min-height:62px; display:flex; align-items:flex-end; gap:8px;
+  overflow-x:auto; padding:14px 16px 16px;
+  background:linear-gradient(180deg,var(--panel),var(--panel2));
+  border:1px solid var(--line); border-left:4px solid var(--cyan);
+  box-shadow:inset 0 -22px 26px rgba(5,6,15,.55), 0 0 0 1px #0004;
+}
+.chip{
+  font-size:clamp(20px,4vw,28px); font-weight:700;
+  padding:3px 11px; text-align:center; min-width:36px; letter-spacing:.02em;
+}
+.chip.result{color:var(--gold); box-shadow:0 0 18px rgba(255,178,62,.35); border-bottom:3px solid var(--gold)}
+.chip.entry{color:var(--cyan); border-bottom:3px dashed var(--cyan-dim); animation:caret 1s steps(1) infinite}
+@keyframes caret{50%{opacity:.35}}
+.chip.empty{color:var(--muted)}
+.chip.err{color:var(--red); font-size:clamp(26px,6vw,40px); letter-spacing:.2em}
+.subbar{
+  display:flex; justify-content:space-between; flex-wrap:wrap;
+  color:var(--muted); font-size:10px; letter-spacing:.14em; text-transform:uppercase;
+  padding:6px 14px 0;
+}
+#memIndicator{color:var(--cyan)}
+.hint{color:var(--gold)}
+
+.deck{display:grid; grid-template-columns:1fr; gap:clamp(8px,1.6vw,12px)}
+@media (min-width:720px){ .deck{grid-template-columns:1.05fr .95fr} }
+.memory,.keypad{
+  border:1px solid var(--line); background:linear-gradient(180deg,var(--panel),var(--panel2));
+  border-left:3px solid var(--violet);
+}
+.keypad{border-left:3px solid var(--cyan)}
+.panel-title{
+  display:flex; justify-content:space-between; gap:8px;
+  font-size:10px; letter-spacing:.2em; text-transform:uppercase;
+  color:var(--violet); padding:10px 12px; border-bottom:1px dashed var(--line);
+}
+.mems{display:flex; flex-direction:column; gap:2px; padding:6px}
+.memrow{
+  display:grid; grid-template-columns:46px 1fr auto; align-items:center; gap:8px;
+  padding:8px 10px; font-family:var(--mono);
+  background:transparent; border:1px solid transparent; border-left:3px solid var(--muted);
+  color:var(--ink); cursor:pointer; font-size:clamp(14px,2.4vw,17px); text-align:left;
+}
+.memrow:hover{background:rgba(51,230,255,.06)}
+.memrow.active{
+  border-color:var(--cyan); border-left-color:var(--cyan);
+  background:linear-gradient(90deg, rgba(51,230,255,.12), rgba(51,230,255,.02));
+  box-shadow:inset 0 0 18px rgba(51,230,255,.15);
+}
+.memrow .idx{color:var(--violet); font-weight:800; letter-spacing:.1em}
+.memrow.active .idx{color:var(--cyan)}
+.memrow .val{text-align:right; letter-spacing:.04em; word-break:break-all}
+.memrow .val.empty{color:var(--muted); font-size:12px}
+.memrow .clr{
+  align-self:center; border:1px solid var(--line); color:var(--muted);
+  font-size:12px; width:26px; height:26px; border-radius:6px;
+  background:transparent; cursor:pointer; line-height:1;
+}
+.memrow .clr:hover{color:var(--red); border-color:var(--red)}
+
+.keys{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; padding:12px}
+.key{
+  font-family:var(--mono); font-size:clamp(18px,3.4vw,24px); font-weight:700;
+  min-height:52px; display:flex; align-items:center; justify-content:center;
+  border:1px solid var(--line); border-radius:8px;
+  background:linear-gradient(180deg,var(--panel2), #161c40);
+  color:var(--ink); cursor:pointer;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04), 0 2px 8px rgba(0,0,0,.35);
+  transition:transform .08s, box-shadow .12s, background .12s;
+}
+.key:active{transform:translateY(2px)}
+.key .small{font-size:9px; display:block; opacity:.45; letter-spacing:.14em; text-transform:uppercase}
+.key.op{color:var(--cyan); border-color:var(--cyan-dim)}
+.key.op:hover{background:rgba(51,230,255,.1); box-shadow:0 0 14px rgba(51,230,255,.3)}
+.key.danger{color:var(--red); border-color:rgba(255,90,110,.5)}
+.key.danger:hover{background:rgba(255,90,110,.12)}
+.key.mem{color:var(--gold); border-color:rgba(255,178,62,.5)}
+.key.mem:hover{background:rgba(255,178,62,.12); box-shadow:0 0 14px rgba(255,178,62,.3)}
+.key.e{color:var(--green); border-color:rgba(90,255,192,.5)}
+.key.e:hover{background:rgba(90,255,192,.12)}
+
+.help{display:flex; flex-wrap:wrap; gap:6px 16px; font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted)}
+.help b{color:var(--cyan); font-weight:800}
+.install-btn{
+  position:fixed; right:14px; bottom:16px; z-index:50;
+  background:var(--cyan); color:#05101f;
+  padding:10px 14px; border-radius:8px; font-weight:800; letter-spacing:.08em;
+  cursor:pointer; box-shadow:0 0 20px rgba(51,230,255,.5);
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <div class="brand"><span class="brand-star">✦</span>RPN·STATION</div>
+    <div class="status" id="status" aria-live="polite">● …</div>
+  </header>
+
+  <div>
+    <div class="display" id="display" aria-live="polite"></div>
+    <div class="subbar">
+      <span>RPN</span>
+      <span class="hint" id="hint"></span>
+      <span>MEM&nbsp;·&nbsp;<span id="memIndicator">M1</span></span>
+      <span id="stackCount">STACK 0</span>
+    </div>
+  </div>
+
+  <main class="deck">
+    <aside class="memory" aria-label="Memories 1 to 8">
+      <div class="panel-title"><span>MEMORIES</span><span>1–8</span></div>
+      <div class="mems" id="mems"></div>
+    </aside>
+
+    <section class="keypad" aria-label="Keypad">
+      <div class="keys" id="keys">
+        <button class="key" data-a="digit" data-v="7" type="button">7</button>
+        <button class="key" data-a="digit" data-v="8" type="button">8</button>
+        <button class="key" data-a="digit" data-v="9" type="button">9</button>
+        <button class="key danger" data-a="c" type="button">C<span class="small">all</span></button>
+        <button class="key" data-a="digit" data-v="4" type="button">4</button>
+        <button class="key" data-a="digit" data-v="5" type="button">5</button>
+        <button class="key" data-a="digit" data-v="6" type="button">6</button>
+        <button class="key danger" data-a="bs" type="button">⌫<span class="small">char</span></button>
+        <button class="key" data-a="digit" data-v="1" type="button">1</button>
+        <button class="key" data-a="digit" data-v="2" type="button">2</button>
+        <button class="key" data-a="digit" data-v="3" type="button">3</button>
+        <button class="key op" data-a="+" type="button">+</button>
+        <button class="key" data-a="digit" data-v="0" type="button">0</button>
+        <button class="key" data-a="dot" type="button">.</button>
+        <button class="key op" data-a="x" type="button">×</button>
+        <button class="key op" data-a="-" type="button">−</button>
+        <button class="key e" data-a="e" type="button">E<span class="small">enter</span></button>
+        <button class="key op" data-a="div" type="button">÷</button>
+        <button class="key mem" data-a="store" type="button">M<span class="small">store</span></button>
+        <button class="key mem" data-a="recall" type="button">R<span class="small">recall</span></button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="help">
+    <span><b>C</b> clear all</span>
+    <span><b>⌫</b> char by char</span>
+    <span><b>E</b> enter/commit number</span>
+    <span><b>M</b> store to MEM</span>
+    <span><b>R</b> recall MEM</span>
+    <span><b>×</b> mult · <b>÷</b> div</span>
+    <span>click a memory row to select it · its × clears it</span>
+  </footer>
+</div>
+
+<button class="install-btn" id="installBtn" type="button" hidden>INSTALL PWAs</button>
+
+<script>
+(function(){
+  "use strict";
+  var stack=[];
+  var entry='';
+  var active=0;
+  var mem=[null,null,null,null,null,null,null,null];
+  var error=false;
+
+  var el={
+    display:document.getElementById('display'),
+    hint:document.getElementById('hint'),
+    mems:document.getElementById('mems'),
+    memIndicator:document.getElementById('memIndicator'),
+    stackCount:document.getElementById('stackCount'),
+    status:document.getElementById('status'),
+    installBtn:document.getElementById('installBtn')
+  };
+
+  function fmt(n){
+    if(n===null||n===undefined) return '';
+    if(!isFinite(n)) return 'ERR';
+    if(Math.abs(n)>=1e16 || Math.abs(n)<1e-15) return n.toExponential(3);
+    return String(+parseFloat(n.toPrecision(12)));
+  }
+
+  function renderDisplay(){
+    el.display.innerHTML='';
+    var add=function(t,c){var d=document.createElement('div');d.className='chip '+c;d.textContent=t;el.display.appendChild(d);};
+    if(error){ add('ERR','err'); return; }
+    el.stackCount.textContent='STACK '+stack.length;
+    el.hint.textContent = entry!=='' ? 'ENTER ▸' : '';
+    if(stack.length===0 && entry===''){ add('0','empty'); return; }
+    for(var i=0;i<stack.length;i++){
+      var top = (i===stack.length-1 && entry==='');
+      add(fmt(stack[i]), top?'result':'');
+    }
+    if(entry!==''){ add(entry,'entry'); }
+  }
+
+  function renderMem(){
+    el.mems.innerHTML='';
+    for(var i=0;i<8;i++){
+      (function(idx){
+        var row=document.createElement('button');
+        row.type='button';
+        row.className='memrow'+(idx===active?' active':'');
+        row.title='M'+(idx+1);
+        var idxEl=document.createElement('span'); idxEl.className='idx'; idxEl.textContent='M'+(idx+1);
+        var val=document.createElement('span');
+        val.className='val'+(mem[idx]==null?' empty':'');
+        val.textContent= mem[idx]==null ? '—' : fmt(mem[idx]);
+        var clr=document.createElement('span');
+        clr.className='clr'; clr.textContent='×';
+        row.appendChild(idxEl); row.appendChild(val); row.appendChild(clr);
+        row.addEventListener('click',function(ev){
+          if(ev.target===clr){ mem[idx]=null; renderMem(); return; }
+          active=idx; renderMem();
+        });
+        el.mems.appendChild(row);
+      })(i);
+    }
+    el.memIndicator.textContent='M'+(active+1);
+  }
+
+  function showError(){ error=true; renderDisplay(); }
+  function resetErr(){ if(error){ error=false; renderDisplay(); } }
+
+  function keyInput(ch){
+    resetErr();
+    if(ch==='.' ){
+      if(entry.includes('.')) return;
+      if(entry==='') entry='0.'; else entry+='.';
+    } else {
+      if(entry===''){ entry=ch; }
+      else if(entry==='0'){ entry=ch; }
+      else { entry+=ch; }
+    }
+    renderDisplay();
+  }
+
+  function commitEntry(){
+    resetErr();
+    if(entry==='') return;
+    var n=parseFloat(entry);
+    if(isNaN(n)) return;
+    stack.push(n); entry='';
+    renderDisplay();
+  }
+
+  function applyOp(op){
+    resetErr();
+    commitEntry();
+    if(stack.length<2){ showError(); return; }
+    var b=stack.pop(), a=stack.pop();
+    if(op==='/' ){ if(b===0){ stack.push(a); showError(); return; } }
+    var r;
+    if(op==='+') r=a+b;
+    else if(op==='-') r=a-b;
+    else if(op==='*') r=a*b;
+    else r=a/b;
+    stack.push(r);
+    renderDisplay();
+  }
+
+  function clearAll(){ stack=[]; entry=''; error=false; renderDisplay(); }
+
+  function backspace(){
+    resetErr();
+    if(entry.length>0){ entry=entry.slice(0,-1); if(entry==='.') entry=''; }
+    renderDisplay();
+  }
+
+  function storeMem(){
+    resetErr();
+    var v=null;
+    if(entry!==''){ v=parseFloat(entry); }
+    else if(stack.length){ v=stack[stack.length-1]; }
+    if(v!==null && !isNaN(v)){ mem[active]=v; }
+    renderMem();
+  }
+
+  function recallMem(){
+    resetErr();
+    var v=mem[active];
+    if(v===null||v===undefined) return;
+    stack.push(v); entry='';
+    renderDisplay();
+  }
+
+  function moveActive(dir){ active=(active+dir+8)%8; renderMem(); }
+
+  document.getElementById('keys').addEventListener('click',function(e){
+    var btn=e.target.closest('.key'); if(!btn) return;
+    var a=btn.dataset.a;
+    if(a==='digit') keyInput(btn.dataset.v);
+    else if(a==='dot') keyInput('.');
+    else if(a==='+') applyOp('+');
+    else if(a==='-') applyOp('-');
+    else if(a==='x') applyOp('*');
+    else if(a==='div') applyOp('/');
+    else if(a==='c') clearAll();
+    else if(a==='bs') backspace();
+    else if(a==='e') commitEntry();
+    else if(a==='store') storeMem();
+    else if(a==='recall') recallMem();
+  });
+
+  window.addEventListener('keydown',function(e){
+    var k=e.key;
+    if(/[0-9]/.test(k)){ keyInput(k); }
+    else if(k==='.'||k===','){ e.preventDefault(); keyInput('.'); }
+    else if(k==='+'){ e.preventDefault(); applyOp('+'); }
+    else if(k==='-'){ e.preventDefault(); applyOp('-'); }
+    else if(k==='*'||k==='/'||k==='x'){ e.preventDefault(); applyOp(k==='x'?'*':'/'); }
+    else if(k==='c'||k==='C'){ e.preventDefault(); clearAll(); }
+    else if(k==='Backspace'){ e.preventDefault(); backspace(); }
+    else if(k==='m'||k==='M'){ e.preventDefault(); storeMem(); }
+    else if(k==='r'||k==='R'){ e.preventDefault(); recallMem(); }
+    else if(k==='Enter'){ e.preventDefault(); commitEntry(); }
+    else if(k==='ArrowUp'){ e.preventDefault(); moveActive(-1); }
+    else if(k==='ArrowDown'){ e.preventDefault(); moveActive(1); }
+  });
+
+  function setOnline(){
+    var on=navigator.onLine;
+    el.status.className='status '+(on?'on':'off');
+    el.status.textContent='● '+(on?'ONLINE':'OFFLINE');
+  }
+  window.addEventListener('online',setOnline);
+  window.addEventListener('offline',setOnline);
+  setOnline();
+
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  }
+  if('beforeinstallprompt' in window){
+    window.addEventListener('beforeinstallprompt',function(ev){
+      ev.preventDefault();
+      el.installBtn.hidden=false;
+      el.installBtn.addEventListener('click',function(){ ev.prompt(); });
+    });
+  }
+
+  renderDisplay(); renderMem();
+})();
+</script>
+</body>
+</html>
