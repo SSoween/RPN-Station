@@ -1,7 +1,7 @@
 {
-  "name": "RPN Station",
-  "short_name": "RPN",
-  "description": "Calculateur RPN hors-ligne — thème Space Opera",
+  "name": "Deep Space",
+  "short_name": "Deep",
+  "description": "Calculateur RPN hors-ligne — Space Opera",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
