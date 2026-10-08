@@ -274,7 +274,7 @@ body::after{
     var inner=el.linesInner;
     inner.innerHTML='';
     var n=stack.length;
-    for(var i=0;i<n;i++){
+    for(var i=n-1;i>=0;i--){
       var row=document.createElement('div');
       row.className='line'+(i===n-1?' top':'');
       var idx=document.createElement('span'); idx.className='line-idx'; idx.textContent=(i+1)+':';
@@ -285,9 +285,7 @@ body::after{
     el.entryVal.textContent = error?'ERR':(entry===''?'…':entry);
     el.entryEl.classList.toggle('err',error);
     el.stackCount.textContent='STACK '+n;
-    if(el.linesWrap.scrollHeight>el.linesWrap.clientHeight+2){
-      el.linesWrap.scrollTop=el.linesWrap.scrollHeight;
-    }
+    el.linesWrap.scrollTop = 0;
   }
 
   function flashError(){ error=true; render(); }
