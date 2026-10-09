@@ -259,7 +259,7 @@ body::after{
 //      Pile pleine → refus (reason "STACK FULL") avec OVERFLOW="error",
 //      ou 8: perdue silencieusement avec OVERFLOW="silent".
 //  · operate(op) : opération binaire entre 2: (1er opérande) et 1: (2e).
-//      Résultat en 1:, les éléments du haut DESCENDENT d'une case.
+//      Résultat en 1:, les éléments au-dessus DESCENDENT d'une case.
 //  · Toutes les méthodes renvoient { ok, reason, ... } ;
 //    reason est définie si ok === false (pile intacte).
 // ========================================================================
@@ -303,21 +303,22 @@ var RPNStack = (function(){
       resetReason();
       if (size === 0) return fail("EMPTY STACK");
       if (size < 2) return fail("NOT ENOUGH VALUES");
-      var a = rows[1]; // 2: (1er opérande)
-      var b = rows[0]; // 1: (2e opérande)
+      var a = rows[1]; // ligne 2: (1er opérande)
+      var b = rows[0]; // ligne 1: (2e opérande)
+      var result;
       if (op === "div"){
         if (b === 0) return fail("DIV BY ZERO");
-        if (!isFinite(a / b)) return fail("RESULT OVERFLOW");
-        rows[0] = a / b; rows[1] = null;
+        result = a / b;
       } else {
         var fn = OPS[op];
         if (!fn) return fail("UNKNOWN OP: " + op);
-        var result = fn(a, b);
-        if (!isFinite(result)) return fail("RESULT OVERFLOW");
-        rows[0] = result; rows[1] = null;
+        result = fn(a, b);
       }
-      // décale vers le bas pour combler le vide (3:→2: …)
-      for (var i = size - 1; i > 1; i--) rows[i-2] = rows[i];
+      if (!isFinite(result)) return fail("RESULT OVERFLOW");
+      // Résultat en 1: ; les éléments au-dessus (lignes 3:..) descendent d'une case.
+      // Décalage bas→haut (in-place) pour éviter d'écraser une valeur non encore lue.
+      for (var i = 1; i < size - 1; i++) rows[i] = rows[i+1];
+      rows[0] = result;
       size--;
       return { ok:true, line:1 };
     },
@@ -337,7 +338,7 @@ var RPNStack = (function(){
     drop: function(){
       resetReason();
       if (size === 0) return fail("EMPTY STACK");
-      var v = rows[size-1]; rows[size-1] = null; size--; // retire la ligne la plus haute occupée
+      var v = rows[size-1]; rows[size-1] = null; size--; // retire la ligne du haut occupée
       return { ok:true, value:v };
     },
     roll: function(){
