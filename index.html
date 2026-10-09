@@ -73,6 +73,8 @@ body::after{
 .line-idx{color:var(--violet); font-weight:800; font-size:clamp(13px,3.4vw,17px); min-width:2.4ch; text-align:right; letter-spacing:.04em}
 .line-val{color:var(--ink); font-weight:700; font-size:clamp(20px,5vw,28px); letter-spacing:.02em; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .line.recent .line-val{color:var(--gold)}
+.line.empty .line-idx{color:var(--muted)}
+.line-val.empty{color:var(--muted); font-size:.55em}
 .entry{
   flex:0 0 auto;
   display:flex; align-items:center; gap:10px;
@@ -91,6 +93,8 @@ body::after{
   font-size:10px; letter-spacing:.18em; text-transform:uppercase;
   color:var(--muted); padding:4px 14px 4px;
 }
+.submsg{flex:1; text-align:center; min-width:0; overflow:hidden; text-overflow:ellipsis}
+.submsg.err{color:var(--red); font-weight:800}
 
 /* ---------- légende (si place) ---------- */
 .help{
@@ -180,6 +184,7 @@ body::after{
 
   <div class="subbar">
     <span>RPN</span>
+    <span class="submsg" id="msgBar"></span>
     <span id="stackCount">STACK 0</span>
   </div>
 
@@ -227,32 +232,141 @@ body::after{
       <button id="sheetClose" class="sheet-close" type="button">✕</button>
     </div>
     <button class="sheet-item action" data-act="clear" type="button">Clear all</button>
+    <button class="sheet-item" data-act="swap" type="button">Swap 1: 2:</button>
+    <button class="sheet-item" data-act="drop" type="button">Drop (top line)</button>
+    <button class="sheet-item" data-act="roll" type="button">Roll 1: 2: 3:</button>
     <button class="sheet-item toggle" data-act="help" type="button">Raccourcis</button>
     <div class="sheet-help" id="sheetHelp" hidden>
       <div class="sh"><span class="sk">0–9 · .</span><span class="sh-val">saisir un nombre</span></div>
       <div class="sh"><span class="sk">↵</span><span class="sh-val">valider (devient 1:, le reste monte)</span></div>
-      <div class="sh"><span class="sk">+ − × ÷</span><span class="sh-val">opérer sur les 2 du bas</span></div>
+      <div class="sh"><span class="sk">+ − × ÷</span><span class="sh-val">opérer sur 2: et 1: (2: op 1:)</span></div>
+      <div class="sh"><span class="sk">s</span><span class="sh-val">swap 1: 2:</span></div>
+      <div class="sh"><span class="sk">d</span><span class="sh-val">drop (ligne du haut)</span></div>
+      <div class="sh"><span class="sk">r</span><span class="sh-val">roll 1: 2: 3:</span></div>
       <div class="sh"><span class="sk">C</span><span class="sh-val">effacement complet</span></div>
       <div class="sh"><span class="sk">⌫</span><span class="sh-val">effacement caract. par caract.</span></div>
       <div class="sh"><span class="sk">±</span><span class="sh-val">changer le signe</span></div>
     </div>
-    <div class="sheet-version">Deep Space · RPN v1.1</div>
+    <div class="sheet-version">Deep Space · RPN v1.2</div>
   </div>
 </div>
 
 <script>
+// ========================================================================
+//  RPNStack — pile de 8 lignes
+//  · ligne 1: = bas (plus récent) · ligne 8: = haut (plus ancien)
+//  · push(value) : la valeur tombe en 1:, le reste MONTE (1:→2: →… 7:→8:).
+//      Pile pleine → refus (reason "STACK FULL") avec OVERFLOW="error",
+//      ou 8: perdue silencieusement avec OVERFLOW="silent".
+//  · operate(op) : opération binaire entre 2: (1er opérande) et 1: (2e).
+//      Résultat en 1:, les éléments du haut DESCENDENT d'une case.
+//  · Toutes les méthodes renvoient { ok, reason, ... } ;
+//    reason est définie si ok === false (pile intacte).
+// ========================================================================
+var RPNStack = (function(){
+  "use strict";
+
+  var CAPACITY = 8;
+  var OVERFLOW = "error"; // "error" | "silent"
+
+  var rows = new Array(CAPACITY).fill(null); // rows[i-1] = ligne i
+  var size = 0;
+  var reason = null;
+
+  var OPS = {
+    "add":  function(a,b){ return a + b; },
+    "sub":  function(a,b){ return a - b; },
+    "mult": function(a,b){ return a * b; }
+  };
+
+  function fail(msg){ reason = msg; return { ok:false, reason: msg }; }
+  function resetReason(){ reason = null; }
+
+  return {
+    push: function(value){
+      resetReason();
+      if (typeof value !== "number" || !isFinite(value)) return fail("NOT A NUMBER");
+      if (size === CAPACITY && OVERFLOW === "error") return fail("STACK FULL");
+      // décale vers le haut ; au dépassement (silent) on n'écrit jamais rows[8]
+      for (var i = Math.min(size, CAPACITY - 1); i > 0; i--) rows[i] = rows[i-1];
+      rows[0] = value;
+      size = Math.min(size + 1, CAPACITY);
+      return { ok:true, line:1 };
+    },
+    pop: function(){
+      resetReason();
+      if (size === 0) return fail("EMPTY STACK");
+      var v = rows[0]; rows[0] = null; size--;
+      return { ok:true, line:1, value:v };
+    },
+    operate: function(op){
+      resetReason();
+      if (size === 0) return fail("EMPTY STACK");
+      if (size < 2) return fail("NOT ENOUGH VALUES");
+      var a = rows[1]; // 2: (1er opérande)
+      var b = rows[0]; // 1: (2e opérande)
+      if (op === "div"){
+        if (b === 0) return fail("DIV BY ZERO");
+        if (!isFinite(a / b)) return fail("RESULT OVERFLOW");
+        rows[0] = a / b; rows[1] = null;
+      } else {
+        var fn = OPS[op];
+        if (!fn) return fail("UNKNOWN OP: " + op);
+        var result = fn(a, b);
+        if (!isFinite(result)) return fail("RESULT OVERFLOW");
+        rows[0] = result; rows[1] = null;
+      }
+      // décale vers le bas pour combler le vide (3:→2: …)
+      for (var i = size - 1; i > 1; i--) rows[i-2] = rows[i];
+      size--;
+      return { ok:true, line:1 };
+    },
+    clear: function(){
+      rows.fill(null); size = 0; resetReason();
+      return { ok:true };
+    },
+    getStack: function(){
+      return rows.slice(); // 8 lignes : s[0]=1: (bas) … s[7]=8: (haut), null si vide
+    },
+    swap: function(){
+      resetReason();
+      if (size < 2) return fail("NOT ENOUGH VALUES");
+      var t = rows[0]; rows[0] = rows[1]; rows[1] = t;
+      return { ok:true };
+    },
+    drop: function(){
+      resetReason();
+      if (size === 0) return fail("EMPTY STACK");
+      var v = rows[size-1]; rows[size-1] = null; size--; // retire la ligne la plus haute occupée
+      return { ok:true, value:v };
+    },
+    roll: function(){
+      resetReason();
+      if (size < 3) return fail("NOT ENOUGH VALUES");
+      var c = rows[2]; rows[2] = rows[1]; rows[1] = rows[0]; rows[0] = c; // 1:→2:→3:→1:
+      return { ok:true };
+    },
+    size: function(){ return size; },
+    full: function(){ return size === CAPACITY; },
+    reason: function(){ return reason; }
+  };
+})();
+
 (function(){
   "use strict";
-  var stack=[];
-  var entry='';
-  var error=false;
+  var stack = new RPNStack();
+  var entry = '';
+  var errorMsg = null;
+  var entryFlash = false;
+  var errTimer = null;
 
-  var el={
+  var el = {
     linesWrap:document.getElementById('linesWrap'),
     linesInner:document.getElementById('linesInner'),
     entryEl:document.getElementById('entry'),
     entryVal:document.getElementById('entryVal'),
     stackCount:document.getElementById('stackCount'),
+    msgBar:document.getElementById('msgBar'),
     status:document.getElementById('status'),
     installBtn:document.getElementById('installBtn'),
     sheet:document.getElementById('sheet'),
@@ -270,143 +384,186 @@ body::after{
     return s;
   }
 
+  // Toujours 8 lignes affichées : 8: (haut) … 1: (bas).
+  // 1: = le plus récent (doré) · ligne vide = · (gris).
   function render(){
-    var inner=el.linesInner;
-    inner.innerHTML='';
-    var n=stack.length;
-    for(var i=0;i<n;i++){
-      var row=document.createElement('div');
-      row.className='line'+(i===n-1?' recent':'');
-      var idx=document.createElement('span'); idx.className='line-idx'; idx.textContent=(n-i)+':';
-      var val=document.createElement('span'); val.className='line-val'; val.textContent=fmt(stack[i]);
+    var inner = el.linesInner;
+    inner.innerHTML = '';
+    var s = stack.getStack(); // s[0] = ligne 1, s[7] = ligne 8
+    for (var line = 8; line >= 1; line--) {
+      var row = document.createElement('div');
+      row.className = 'line'
+        + (line === 1 && s[0] !== null ? ' recent' : '')
+        + (s[line-1] === null ? ' empty' : '');
+      var idx = document.createElement('span'); idx.className = 'line-idx'; idx.textContent = line + ':';
+      var val = document.createElement('span'); val.className = 'line-val';
+      var v = s[line-1];
+      if (v === null) { val.textContent = '·'; val.classList.add('empty'); }
+      else val.textContent = fmt(v);
       row.appendChild(idx); row.appendChild(val);
       inner.appendChild(row);
     }
-    el.entryVal.textContent = error?'ERR':(entry===''?'…':entry);
-    el.entryEl.classList.toggle('err',error);
-    el.stackCount.textContent='STACK '+n;
+    el.entryVal.textContent = entryFlash ? 'ERR' : (entry === '' ? '…' : entry);
+    el.entryEl.classList.toggle('err', entryFlash);
+    el.stackCount.textContent = 'STACK ' + stack.size();
+    el.msgBar.textContent = errorMsg ? '⚠ ' + errorMsg : '';
+    el.msgBar.className = errorMsg ? 'submsg err' : 'submsg';
     el.linesWrap.scrollTop = el.linesWrap.scrollHeight;
   }
 
-  function flashError(){ error=true; render(); }
-  function resetError(){ error=false; }
+  function flashError(msg, flashEntry){
+    errorMsg = msg;
+    entryFlash = !!flashEntry;
+    render();
+    if (errTimer) clearTimeout(errTimer);
+    errTimer = setTimeout(function(){
+      errorMsg = null; entryFlash = false;
+      render();
+    }, 2200);
+  }
+  function resetError(){
+    if (errorMsg || entryFlash) {
+      errorMsg = null; entryFlash = false;
+      clearTimeout(errTimer);
+      render();
+    }
+  }
 
   function keyInput(ch){
     resetError();
-    if(ch==='.'){
-      if(entry.indexOf('.')>=0) return;
-      entry = (entry===''?'0.':entry)+ch;
+    if (ch === '.'){
+      if (entry.indexOf('.') >= 0) return;
+      entry = (entry === '' ? '0.' : entry) + ch;
     } else {
-      if(entry===''){ entry=ch; }
-      else if(entry==='0'){ entry=ch; }
-      else if(entry==='-0'){ entry='-'+ch; }
-      else { entry+=ch; }
+      if (entry === '') entry = ch;
+      else if (entry === '0') entry = ch;
+      else if (entry === '-0') entry = '-' + ch;
+      else entry += ch;
     }
     render();
   }
 
+  // Enter : le nombre tombe en 1:, le reste monte.
+  // Pile pleine → refus, le nombre reste visible dans le champ d'entrée.
   function commitEntry(){
-    if(entry===''){ resetError(); return; }
-    var n=parseFloat(entry);
-    if(!isNaN(n)){ stack.push(n); entry=''; resetError(); render(); }
-    else { resetError(); }
+    if (entry === '') { resetError(); return; }
+    var n = parseFloat(entry);
+    if (isNaN(n)) { resetError(); return; }
+    var res = stack.push(n);
+    if (res.ok) { entry = ''; resetError(); render(); }
+    else flashError(res.reason, false);
   }
 
+  // Opération binaire sur 2: (1er opérande) et 1: (2e).
   function doOp(op){
-    if(entry!==''){ commitEntry(); }
-    resetError();
-    if(stack.length<2){ flashError(); return; }
-    var b=stack[stack.length-1];
-    var a=stack[stack.length-2];
-    if(op==='div' && b===0){ flashError(); return; }
-    var r;
-    if(op==='add') r=a+b;
-    else if(op==='sub') r=a-b;
-    else if(op==='mult') r=a*b;
-    else r=a/b;
-    stack.pop(); stack.pop();
-    stack.push(r);
-    render();
+    if (entry !== '') commitEntry();
+    var res = stack.operate(op);
+    if (res.ok) { resetError(); render(); }
+    else flashError(res.reason, true);
   }
 
-  function clearAll(){ stack=[]; entry=''; resetError(); render(); }
+  function doSwap(){
+    var res = stack.swap();
+    if (res.ok) { resetError(); render(); }
+    else flashError(res.reason, true);
+  }
+  function doDrop(){
+    var res = stack.drop();
+    if (res.ok) { resetError(); render(); }
+    else flashError(res.reason, true);
+  }
+  function doRoll(){
+    var res = stack.roll();
+    if (res.ok) { resetError(); render(); }
+    else flashError(res.reason, true);
+  }
+
+  function clearAll(){
+    stack.clear(); entry = ''; resetError(); render();
+  }
 
   function backspace(){
     resetError();
-    if(entry.length>0){ entry=entry.slice(0,-1); }
-    if(entry==='.'){ entry=''; }
+    if (entry.length > 0) entry = entry.slice(0, -1);
+    if (entry === '.') entry = '';
     render();
   }
 
   function toggleSign(){
     resetError();
-    if(entry===''){ return; }
-    entry = (entry.charAt(0)==='-') ? entry.slice(1) : '-'+entry;
+    if (entry === '') return;
+    entry = (entry.charAt(0) === '-') ? entry.slice(1) : '-' + entry;
     render();
   }
 
-  document.getElementById('keys').addEventListener('click',function(e){
-    var btn=e.target.closest('.key'); if(!btn) return;
-    var a=btn.dataset.a;
-    if(a==='digit'){ keyInput(btn.dataset.v); }
-    else if(a==='dot'){ keyInput('.'); }
-    else if(a==='add'){ doOp('add'); }
-    else if(a==='sub'){ doOp('sub'); }
-    else if(a==='mult'){ doOp('mult'); }
-    else if(a==='div'){ doOp('div'); }
-    else if(a==='enter'){ commitEntry(); }
-    else if(a==='c'){ clearAll(); }
-    else if(a==='bs'){ backspace(); }
-    else if(a==='pm'){ toggleSign(); }
-    else if(a==='menu'){ toggleSheet(); }
+  document.getElementById('keys').addEventListener('click', function(e){
+    var btn = e.target.closest('.key'); if (!btn) return;
+    var a = btn.dataset.a;
+    if (a === 'digit') keyInput(btn.dataset.v);
+    else if (a === 'dot') keyInput('.');
+    else if (a === 'add') doOp('add');
+    else if (a === 'sub') doOp('sub');
+    else if (a === 'mult') doOp('mult');
+    else if (a === 'div') doOp('div');
+    else if (a === 'enter') commitEntry();
+    else if (a === 'c') clearAll();
+    else if (a === 'bs') backspace();
+    else if (a === 'pm') toggleSign();
+    else if (a === 'menu') toggleSheet();
   });
 
-  window.addEventListener('keydown',function(e){
-    if(!el.sheet.hidden){
-      if(e.key==='Escape'){ closeSheet(); }
+  window.addEventListener('keydown', function(e){
+    if (!el.sheet.hidden) {
+      if (e.key === 'Escape') closeSheet();
       return;
     }
-    var k=e.key;
-    if(/[0-9]/.test(k)){ keyInput(k); }
-    else if(k==='.'||k===','){ e.preventDefault(); keyInput('.'); }
-    else if(k==='+'){ e.preventDefault(); doOp('add'); }
-    else if(k==='-'){ e.preventDefault(); doOp('sub'); }
-    else if(k==='*'||k==='/'||k==='x'){ e.preventDefault(); doOp(k==='x'?'mult':'div'); }
-    else if(k==='c'||k==='C'){ e.preventDefault(); clearAll(); }
-    else if(k==='Backspace'){ e.preventDefault(); backspace(); }
-    else if(k==='Enter'){ e.preventDefault(); commitEntry(); }
+    var k = e.key;
+    if (/[0-9]/.test(k)) keyInput(k);
+    else if (k === '.' || k === ',') { e.preventDefault(); keyInput('.'); }
+    else if (k === '+') { e.preventDefault(); doOp('add'); }
+    else if (k === '-') { e.preventDefault(); doOp('sub'); }
+    else if (k === '*' || k === '/' || k === 'x') { e.preventDefault(); doOp(k === 'x' ? 'mult' : 'div'); }
+    else if (k === 'c' || k === 'C') { e.preventDefault(); clearAll(); }
+    else if (k === 'Backspace') { e.preventDefault(); backspace(); }
+    else if (k === 'Enter') { e.preventDefault(); commitEntry(); }
+    else if (k === 's' || k === 'S') { e.preventDefault(); doSwap(); }
+    else if (k === 'd' || k === 'D') { e.preventDefault(); doDrop(); }
+    else if (k === 'r' || k === 'R') { e.preventDefault(); doRoll(); }
   });
 
-  function openSheet(){ el.sheet.hidden=false; }
-  function closeSheet(){ el.sheet.hidden=true; }
+  function openSheet(){ el.sheet.hidden = false; }
+  function closeSheet(){ el.sheet.hidden = true; }
   function toggleSheet(){ el.sheet.hidden ? openSheet() : closeSheet(); }
-  el.sheetClose.addEventListener('click',closeSheet);
-  el.sheetBackdrop.addEventListener('click',closeSheet);
-  el.sheet.addEventListener('click',function(e){
-    if(e.target===el.sheet && !e.target.classList.contains('sheet-body')) return closeSheet();
-    var item=e.target.closest('.sheet-item');
-    if(!item) return;
-    if(item.dataset.act==='clear'){ clearAll(); closeSheet(); }
-    else if(item.dataset.act==='help'){ el.helpPanel.hidden=!el.helpPanel.hidden; }
+  el.sheetClose.addEventListener('click', closeSheet);
+  el.sheetBackdrop.addEventListener('click', closeSheet);
+  el.sheet.addEventListener('click', function(e){
+    if (e.target === el.sheet && !e.target.classList.contains('sheet-body')) return closeSheet();
+    var item = e.target.closest('.sheet-item');
+    if (!item) return;
+    if (item.dataset.act === 'clear') { clearAll(); closeSheet(); }
+    else if (item.dataset.act === 'swap') { doSwap(); closeSheet(); }
+    else if (item.dataset.act === 'drop') { doDrop(); closeSheet(); }
+    else if (item.dataset.act === 'roll') { doRoll(); closeSheet(); }
+    else if (item.dataset.act === 'help') el.helpPanel.hidden = !el.helpPanel.hidden;
   });
 
   function setOnline(){
-    var on=navigator.onLine;
-    el.status.className='status '+(on?'on':'off');
-    el.status.textContent='● '+(on?'ONLINE':'OFFLINE');
+    var on = navigator.onLine;
+    el.status.className = 'status ' + (on ? 'on' : 'off');
+    el.status.textContent = '● ' + (on ? 'ONLINE' : 'OFFLINE');
   }
-  window.addEventListener('online',setOnline);
-  window.addEventListener('offline',setOnline);
+  window.addEventListener('online', setOnline);
+  window.addEventListener('offline', setOnline);
   setOnline();
 
-  if('serviceWorker' in navigator){
+  if ('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').catch(function(){});
   }
-  if('beforeinstallprompt' in window){
-    window.addEventListener('beforeinstallprompt',function(ev){
+  if ('beforeinstallprompt' in window){
+    window.addEventListener('beforeinstallprompt', function(ev){
       ev.preventDefault();
-      el.installBtn.hidden=false;
-      el.installBtn.addEventListener('click',function(){ ev.prompt(); });
+      el.installBtn.hidden = false;
+      el.installBtn.addEventListener('click', function(){ ev.prompt(); });
     });
   }
 
