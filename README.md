@@ -27,11 +27,11 @@ Module JavaScript (dans `index.html`) implementant exactement la spec : pile de 
 |---|---|---|
 | `push(value)` | `value` tombe en **1:**, le reste monte (1:→2:…). Pile pleine → refus (`STACK FULL`) — ou `8:` perdue si `OVERFLOW="silent"` | `NOT A NUMBER` / `STACK FULL` |
 | `pop()` | retire la ligne **1:** (le plus récent) | `EMPTY STACK` |
-| `operate(op)` | `2: op 1:` avec `op` ∈ `{add, sub, mult, div}` ; résultat en 1:, le reste descend | `EMPTY STACK` / `NOT ENOUGH VALUES` / `DIV BY ZERO` / `RESULT OVERFLOW` / `UNKNOWN OP` |
+| `operate(op)` | `2: op 1:` avec `op` ∈ `{add, sub, mult, div}` ; résultat en 1:, les éléments au-dessus descendent d'une case | `EMPTY STACK` / `NOT ENOUGH VALUES` / `DIV BY ZERO` / `RESULT OVERFLOW` / `UNKNOWN OP` |
 | `clear()` | vide les 8 lignes | — |
 | `getStack()` | les 8 lignes : `s[0]` = 1: (bas) … `s[7]` = 8: (haut) ; `null` si ligne vide | — |
 | `swap()` | échange **1: ↔ 2:** (≥2 valeurs) | `NOT ENOUGH VALUES` |
-| `drop()` | retire la **ligne du haut occupée** (8: si pile pleine, sinon la plus haute) ; le reste descend | `EMPTY STACK` |
+| `drop()` | retire la **ligne du haut occupée** (la plus haute ligne non vide) | `EMPTY STACK` |
 | `roll()` | rotation **1:→2:→3:→1:** (≥3 valeurs) | `NOT ENOUGH VALUES` |
 | `size()` / `full()` / `reason()` | accessurs | — |
 
@@ -49,7 +49,7 @@ Module JavaScript (dans `index.html`) implementant exactement la spec : pile de 
 
 ### Exemple pas à pas — la pile 8 lignes avant / après chaque action
 
-Chaque ligne montre les **8 lignes** de la pile, de `8:` (gauche) à `1:` (droite) ; `·` = ligne vide.
+Chaque ligne montre les **8 lignes** de la pile, de `8:` (gauche) à `1:` (droite) ; `·` = ligne vide. **Les valeurs sont re-tracées mot à mot dans le code** (pas à pas, `rows[i-1]` = ligne i).
 
 | # | Action | Avant (8: → 1:) | Après (8: → 1:) |
 |---|--------|-----------------|-----------------|
@@ -57,8 +57,8 @@ Chaque ligne montre les **8 lignes** de la pile, de `8:` (gauche) à `1:` (droit
 | 1 | push 10 | `· · · · · · · ·` | `· · · · · · · 10` |
 | 2 | push 5 | `· · · · · · · 10` | `· · · · · · 10 5` |
 | 3 | push 3 | `· · · · · · 10 5` | `· · · · · 10 5 3` |
-| 4 | **+** (5+3=8) | `· · · · · 10 5 3` | `· · · · · 10 8` |
-| 5 | push 2 | `· · · · · 10 8` | `· · · · 10 8 2` |
+| 4 | **+** (5+3=8) | `· · · · · · 10 5 3` | `· · · · · · 10 8` |
+| 5 | push 2 | `· · · · · · 10 8` | `· · · · 10 8 2` |
 | 6 | **×** (8×2=16) | `· · · · 10 8 2` | `· · · 10 16` |
 | 7 | push 4 | `· · · 10 16` | `· · 10 16 4` |
 | 8 | **÷** (16÷4=4) | `· · 10 16 4` | `· · 10 4` |
@@ -71,14 +71,14 @@ Chaque ligne montre les **8 lignes** de la pile, de `8:` (gauche) à `1:` (droit
 | 15 | push 6 | `· · 10 −2 5 8 2 4` | `· 10 −2 5 8 2 4 6` |
 | 16 | push 3 | `· 10 −2 5 8 2 4 6` | `10 −2 5 8 2 4 6 3` ← **pile pleine (8/8)** |
 | 17 | push 9 | `10 −2 5 8 2 4 6 3` | `10 −2 5 8 2 4 6 3` — ⚠ **STACK FULL**, refusé |
-| 18 | **÷** (6÷3=2) | `10 −2 5 8 2 4 6 3` | `10 −2 5 8 2 4 2` |
-| 19 | **swap** (1:↔2:) | `10 −2 5 8 2 4 2` | `10 −2 5 8 2 2 4` |
-| 20 | **×** (2×4=8) | `10 −2 5 8 2 2 4` | `· 10 −2 5 8 2 2 8` |
-| 21 | **roll** (1:→2:→3:→1:) | `· 10 −2 5 8 2 2 8` | `· 10 −2 5 8 2 8 8` |
-| 22 | **drop** (retire 7:10) | `· 10 −2 5 8 2 8 8` | `· · −2 5 8 2 8 8` |
-| 23 | **+** (8+8=16) | `· · −2 5 8 2 8 8` | `· · · −2 5 8 2 16` |
-| 24 | **×** (2×16=32) | `· · · −2 5 8 2 16` | `· · · −2 5 8 32` |
-| 25 | **clear** | `· · · −2 5 8 32` | `· · · · · · · ·` |
+| 18 | **÷** (6÷3=2) | `10 −2 5 8 2 4 6 3` | `· 10 −2 5 8 2 4 2` |
+| 19 | **swap** (1:↔2:) | `· 10 −2 5 8 2 4 2` | `· 10 −2 5 8 2 2 4` |
+| 20 | **×** (2×4=8) | `· 10 −2 5 8 2 2 4` | `· · 10 −2 5 8 2 8` |
+| 21 | **roll** (1:→2:→3:→1:) | `· · 10 −2 5 8 2 8` | `· · 10 −2 5 2 8 8` |
+| 22 | **drop** (retire 6:10) | `· · 10 −2 5 2 8 8` | `· · · −2 5 2 8 8` |
+| 23 | **+** (8+8=16) | `· · · −2 5 2 8 8` | `· · · · −2 5 2 16` |
+| 24 | **×** (2×16=32) | `· · · · −2 5 2 16` | `· · · −2 5 32` |
+| 25 | **clear** | `· · · −2 5 32` | `· · · · · · · ·` |
 | 26 | push 5 | `· · · · · · · ·` | `· · · · · · · 5` |
 | 27 | push 3 | `· · · · · · · 5` | `· · · · · · 5 3` |
 | 28 | **+** (5+3=8) | `· · · · · · 5 3` | `· · · · · · · 8` |
