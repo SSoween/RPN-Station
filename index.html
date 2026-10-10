@@ -57,6 +57,14 @@ body::after{
   font-family:var(--mono); font-size:10px; font-weight:800; letter-spacing:.06em;
   box-shadow:0 0 14px rgba(51,230,255,.5);
 }
+.refresh-btn{
+  background:transparent; color:var(--muted);
+  border:1px solid var(--line); border-radius:8px; cursor:pointer;
+  padding:5px 9px; font-family:var(--mono); font-size:16px; line-height:1;
+  box-shadow:none;
+}
+.refresh-btn:hover{color:var(--cyan); border-color:var(--cyan-dim); background:rgba(51,230,255,.1)}
+.refresh-btn:disabled{opacity:.5; cursor:not-allowed}
 
 /* ---------- affichage (pile RPN + entrée) ---------- */
 .display{
@@ -168,7 +176,8 @@ body::after{
     <div class="brand"><span class="brand-star">✦</span>DEEP&nbsp;SPACE</div>
     <div class="bar-right">
       <button class="install-btn" id="installBtn" hidden>INSTALL</button>
-      <div class="status" id="status" aria-live="polite">● …</div>
+      <button class="refresh-btn" id="refreshBtn" title="Relancer l'app (forcer la mise à jour)">&#8627;</button>
+      <div class="status" id="status" aria-live="polite">&#8226; …</div>
     </div>
   </header>
 
@@ -177,7 +186,7 @@ body::after{
       <div class="lines-inner" id="linesInner"></div>
     </div>
     <div class="entry" id="entry">
-      <span class="entry-caret">▸</span>
+      <span class="entry-caret">&#9658;</span>
       <span class="entry-val" id="entryVal"></span>
     </div>
   </div>
@@ -189,16 +198,16 @@ body::after{
   </div>
 
   <div class="help">
-    <span><b>↵</b> enter</span>
+    <span><b>&#8613;</b> enter</span>
     <span><b>C</b> clear</span>
-    <span><b>⌫</b> char</span>
-    <span><b>±</b> sign</span>
+    <span><b>&#8593;</b> char</span>
+    <span><b>&#177;</b> sign</span>
     <span><b>…</b> menu</span>
   </div>
 
   <div class="keys" id="keys">
-    <button class="key sign"  data-a="pm"   type="button">±<span class="small">sign</span></button>
-    <button class="key danger" data-a="bs"   type="button">⌫<span class="small">char</span></button>
+    <button class="key sign"  data-a="pm"   type="button">&#177;<span class="small">sign</span></button>
+    <button class="key danger" data-a="bs"   type="button">&#8593;<span class="small">char</span></button>
     <button class="key danger" data-a="c"    type="button">C<span class="small">all</span></button>
     <button class="key menu"   data-a="menu" type="button">…<span class="small">menu</span></button>
 
@@ -210,7 +219,7 @@ body::after{
     <button class="key"        data-a="digit" data-v="4" type="button">4</button>
     <button class="key"        data-a="digit" data-v="5" type="button">5</button>
     <button class="key"        data-a="digit" data-v="6" type="button">6</button>
-    <button class="key op"     data-a="mult" type="button">×<span class="small">mul</span></button>
+    <button class="key op"     data-a="mult" type="button">×</button>
 
     <button class="key"        data-a="digit" data-v="1" type="button">1</button>
     <button class="key"        data-a="digit" data-v="2" type="button">2</button>
@@ -370,6 +379,7 @@ var RPNStack = (function(){
     msgBar:document.getElementById('msgBar'),
     status:document.getElementById('status'),
     installBtn:document.getElementById('installBtn'),
+    refreshBtn:document.getElementById('refreshBtn'),
     sheet:document.getElementById('sheet'),
     sheetBackdrop:document.getElementById('sheetBackdrop'),
     sheetClose:document.getElementById('sheetClose'),
@@ -497,6 +507,25 @@ var RPNStack = (function(){
     render();
   }
 
+  // Relance complète : déconnecte le service worker puis recharge,
+  // afin de forcer le navigateur à refetcher les fichiers frais
+  // (utile quand une vieille version est restée dans le cache PWA).
+  function forceReload(){
+    if ('serviceWorker' in navigator){
+      navigator.serviceWorker.getRegistrations().then(function(regs){
+        Promise.all(regs.map(function(r){ return r.unregister(); })).then(function(){
+          window.location.reload();
+        });
+      });
+    } else {
+      window.location.reload();
+    }
+  }
+  el.refreshBtn.addEventListener('click', function(){
+    el.refreshBtn.disabled = true;
+    forceReload();
+  });
+
   document.getElementById('keys').addEventListener('click', function(e){
     var btn = e.target.closest('.key'); if (!btn) return;
     var a = btn.dataset.a;
@@ -553,8 +582,8 @@ var RPNStack = (function(){
     el.status.className = 'status ' + (on ? 'on' : 'off');
     el.status.textContent = '● ' + (on ? 'ONLINE' : 'OFFLINE');
   }
-  window.addEventListener('online', setOnline);
-  window.addEventListener('offline', setOnline);
+  window.addEventListener('online',setOnline);
+  window.addEventListener('offline',setOnline);
   setOnline();
 
   if ('serviceWorker' in navigator){
@@ -564,7 +593,7 @@ var RPNStack = (function(){
     window.addEventListener('beforeinstallprompt', function(ev){
       ev.preventDefault();
       el.installBtn.hidden = false;
-      el.installBtn.addEventListener('click', function(){ ev.prompt(); });
+      el.installBtn.addEventListener('click',function(){ ev.prompt(); });
     });
   }
 
