@@ -1,7 +1,7 @@
 // Service worker — cache local pour usage 100% hors-ligne.
 // Stratégie : stale-while-revalidate (sert le cache immédiatement, revalide en tâche de fond).
 // CACHE_NAME est versionné : le changer force le renouvellement du cache au prochain déploiement.
-const CACHE_NAME = 'rpn-station-v3';
+const CACHE_NAME = 'rpn-station-v4';
 
 const urlsToCache = [
   './',
