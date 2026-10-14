@@ -103,6 +103,7 @@ body::after{
 }
 .submsg{flex:1; text-align:center; min-width:0; overflow:hidden; text-overflow:ellipsis}
 .submsg.err{color:var(--red); font-weight:800}
+.ver{color:var(--gold); font-weight:800}
 
 /* ---------- légende (si place) ---------- */
 .help{
@@ -192,7 +193,7 @@ body::after{
   </div>
 
   <div class="subbar">
-    <span>RPN</span>
+    <span>RPN&nbsp;<span class="ver">v2.0</span></span>
     <span class="submsg" id="msgBar"></span>
     <span id="stackCount">STACK 0</span>
   </div>
@@ -256,7 +257,7 @@ body::after{
       <div class="sh"><span class="sk">⌫</span><span class="sh-val">effacement caract. par caract.</span></div>
       <div class="sh"><span class="sk">±</span><span class="sh-val">changer le signe</span></div>
     </div>
-    <div class="sheet-version">Deep Space · RPN v1.2</div>
+    <div class="sheet-version">Deep Space · RPN v2.0</div>
   </div>
 </div>
 
@@ -364,6 +365,7 @@ var RPNStack = (function(){
 
 (function(){
   "use strict";
+  var APP_VERSION = "2.0";
   var stack = new RPNStack();
   var entry = '';
   var errorMsg = null;
@@ -596,6 +598,9 @@ var RPNStack = (function(){
       el.installBtn.addEventListener('click',function(){ ev.prompt(); });
     });
   }
+
+  // Diagnostic : si tu vois cette ligne dans la console, c'est bien la version 2.0 chargée.
+  console.log('[RPN] version chargée = ' + APP_VERSION);
 
   render();
 })();
