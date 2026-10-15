@@ -365,8 +365,8 @@ var RPNStack = (function(){
 
 (function(){
   "use strict";
-  var APP_VERSION = "2.0";
-  var stack = new RPNStack();
+  var APP_VERSION = "2.1";
+  var stack = RPNStack;   // RPNStack est un objet déjà créé (pas de "new")
   var entry = '';
   var errorMsg = null;
   var entryFlash = false;
@@ -599,7 +599,7 @@ var RPNStack = (function(){
     });
   }
 
-  // Diagnostic : si tu vois cette ligne dans la console, c'est bien la version 2.0 chargée.
+  // Diagnostic : si tu vois cette ligne dans la console, c'est bien la version 2.1 chargée.
   console.log('[RPN] version chargée = ' + APP_VERSION);
 
   render();
