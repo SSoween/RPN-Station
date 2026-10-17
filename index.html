@@ -193,7 +193,7 @@ body::after{
   </div>
 
   <div class="subbar">
-    <span>RPN&nbsp;<span class="ver">v2.1</span></span>
+    <span>RPN&nbsp;<span class="ver">v2.2</span></span>
     <span class="submsg" id="msgBar"></span>
     <span id="stackCount">STACK 0</span>
   </div>
@@ -257,7 +257,7 @@ body::after{
       <div class="sh"><span class="sk">⌫</span><span class="sh-val">effacement caract. par caract.</span></div>
       <div class="sh"><span class="sk">±</span><span class="sh-val">changer le signe</span></div>
     </div>
-    <div class="sheet-version">Deep Space · RPN v2.1</div>
+    <div class="sheet-version">Deep Space · RPN v2.2</div>
   </div>
 </div>
 
@@ -270,6 +270,7 @@ body::after{
 //      ou 8: perdue silencieusement avec OVERFLOW="silent".
 //  · operate(op) : opération binaire entre 2: (1er opérande) et 1: (2e).
 //      Résultat en 1:, les éléments au-dessus DESCENDENT d'une case.
+//      (La ligne du haut vacante est nullifiée pour éviter toute valeur stale.)
 //  · Toutes les méthodes renvoient { ok, reason, ... } ;
 //    reason est définie si ok === false (pile intacte).
 // ========================================================================
@@ -306,7 +307,11 @@ var RPNStack = (function(){
     pop: function(){
       resetReason();
       if (size === 0) return fail("EMPTY STACK");
-      var v = rows[0]; rows[0] = null; size--;
+      var v = rows[0];
+      // décale vers le bas (in-place, bas→haut) puis nullifie l'ancienne ligne du haut
+      for (var i = 0; i < size - 1; i++) rows[i] = rows[i+1];
+      rows[size - 1] = null;
+      size--;
       return { ok:true, line:1, value:v };
     },
     operate: function(op){
@@ -328,6 +333,7 @@ var RPNStack = (function(){
       // Résultat en 1: ; les éléments au-dessus (lignes 3:..) descendent d'une case.
       // Décalage bas→haut (in-place) pour éviter d'écraser une valeur non encore lue.
       for (var i = 1; i < size - 1; i++) rows[i] = rows[i+1];
+      rows[size - 1] = null; // FIX : nullifier l'ancienne ligne du haut (valeur stale)
       rows[0] = result;
       size--;
       return { ok:true, line:1 };
@@ -337,7 +343,9 @@ var RPNStack = (function(){
       return { ok:true };
     },
     getStack: function(){
-      return rows.slice(); // 8 lignes : s[0]=1: (bas) … s[7]=8: (haut), null si vide
+      var out = rows.slice(0, size); // uniquement les entrées valides (pas de stale)
+      while (out.length < CAPACITY) out.push(null);
+      return out;
     },
     swap: function(){
       resetReason();
@@ -348,7 +356,8 @@ var RPNStack = (function(){
     drop: function(){
       resetReason();
       if (size === 0) return fail("EMPTY STACK");
-      var v = rows[size-1]; rows[size-1] = null; size--; // retire la ligne du haut occupée
+      var v = rows[size-1];
+      rows[size-1] = null; size--; // retire la ligne du haut occupée
       return { ok:true, value:v };
     },
     roll: function(){
@@ -365,7 +374,7 @@ var RPNStack = (function(){
 
 (function(){
   "use strict";
-  var APP_VERSION = "2.1";
+  var APP_VERSION = "2.2";
   var stack = RPNStack;   // RPNStack est un objet déjà créé (pas de "new")
   var entry = '';
   var errorMsg = null;
@@ -599,7 +608,7 @@ var RPNStack = (function(){
     });
   }
 
-  // Diagnostic : si tu vois cette ligne dans la console, c'est bien la version 2.1 chargée.
+  // Diagnostic : si tu vois cette ligne dans la console, c'est bien la version 2.2 chargée.
   console.log('[RPN] version chargée = ' + APP_VERSION);
 
   render();
