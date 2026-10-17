@@ -104,7 +104,7 @@ npx serve .            # ou : python3 -m http.server 8000
 Ouvrir `http://localhost:8000/`.
 
 > ⚠️ La PWA / le service worker ne marchent **QUE sur http(s)** — pas sur `file://`.
-> Le `sw.js` est versionné (`rpn-station-v6`) : chaque mise à jour du code bump le numéro → **l'app installée se met à jour automatiquement** (pas besoin de désinstaller/réinstaller).
+> Le `sw.js` est versionné (`rpn-station-v7`) : chaque mise à jour du code bump le numéro → **l'app installée se met à jour automatiquement** (pas besoin de désinstaller/réinstaller).
 
 ## ⌨️ Raccourcis clavier (desktop)
 | Touche | Action |
@@ -129,5 +129,6 @@ README.md
 ```
 
 ## 🚨 Changelog
+- **v2.3 / sw v7** : suppression du *double-tap zoom* (et du pinch zoom) à l'affichage — `touch-action: manipulation` sur tout l'app, `touch-action: pan-y` sur les zones de scroll, `-webkit-text-size-adjust:100%` + suppression de la sélection de texte (`user-select:none`). Plus de zoom quand on tape vite.
 - **v2.2 / sw v6** : correction `operate()` — nullification de la ligne du haut vacante (`rows[size-1] = null`) + `getStack()` ne renvoie que les entrées valides → **plus jamais de valeur *stale* affichée deux fois** (ex. `2:` et `3:` identiques après une op). `pop()` passe en décalage vers le bas (pop de pile propre).
 - **v2.1 / sw v5** : module `RPNStack` complet (8 lignes, push/operate sur 2:/1:, swap/drop/roll, erreurs `reason`).
