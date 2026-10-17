@@ -6,7 +6,7 @@ Calculateur RPN (Reverse Polish Notation), **PWA 100 % hors-ligne**, UI **Space 
 - **Pile RPN en 8 lignes fixes** (1: à 8:) : `1:` = **bas** (le plus récent), `8:` = **haut** (le plus ancien). Les 8 lignes sont **toujours affichées**, même vides (`·`).
 - **En cours de saisie** : le nombre s'affiche **en bas, non-numéroté, dans le champ cyan** ; il ne devient `1:` **qu'après ↵** (le reste monte d'une case).
 - **Push** : le nombre entre en `1:`, tout le reste **monte** (1:→2: … 7:→8:). Pile pleine → **erreur `STACK FULL`**, le push est refusé (voir § Stack ; bascule silencieuse possible en une ligne).
-- **Opérations** `+ − × ÷` : toujours entre `2:` (1er opérande) et `1:` (2e opérande) — ordre `2: op 1:` — le résultat remplace les deux et devient `1:`, les éléments du haut **descendent** d'une case.
+- **Opérations** `+ − × ÷` : toujours entre `2:` (1er opérande) et `1:` (2e opérande) — ordre `2: op 1:` — le résultat remplace les deux et devient `1:`, les éléments du haut **descendent** d'une case. (v2.2 : la ligne du haut vacante est nullifiée + `getStack()` ne renvoie que les entrées valides → plus aucune valeur *stale* affichée en double.)
 - **Bonus (menu `…` + clavier `s`/`d`/`r`)** : `swap` (1:↔2:), `drop` (retirer la ligne du haut), `roll` (rotation 1:→2:→3:→1:).
 - **↵ Enter** : valider · **C** : effacement complet · **⌫** : caractère par caractère · **±** : signe.
 
@@ -26,10 +26,10 @@ Module JavaScript (dans `index.html`) implementant exactement la spec : pile de 
 | Méthode | Effet | Retour (si `ok:false`, `reason` = motif) |
 |---|---|---|
 | `push(value)` | `value` tombe en **1:**, le reste monte (1:→2:…). Pile pleine → refus (`STACK FULL`) — ou `8:` perdue si `OVERFLOW="silent"` | `NOT A NUMBER` / `STACK FULL` |
-| `pop()` | retire la ligne **1:** (le plus récent) | `EMPTY STACK` |
-| `operate(op)` | `2: op 1:` avec `op` ∈ `{add, sub, mult, div}` ; résultat en 1:, les éléments au-dessus descendent d'une case | `EMPTY STACK` / `NOT ENOUGH VALUES` / `DIV BY ZERO` / `RESULT OVERFLOW` / `UNKNOWN OP` |
+| `pop()` | retire la ligne **1:** (le plus récent), le reste descend d'une case | `EMPTY STACK` |
+| `operate(op)` | `2: op 1:` avec `op` ∈ `{add, sub, mult, div}` ; résultat en 1:, les éléments au-dessus descendent d'une case ; la ligne du haut vacante est nullifiée | `EMPTY STACK` / `NOT ENOUGH VALUES` / `DIV BY ZERO` / `RESULT OVERFLOW` / `UNKNOWN OP` |
 | `clear()` | vide les 8 lignes | — |
-| `getStack()` | les 8 lignes : `s[0]` = 1: (bas) … `s[7]` = 8: (haut) ; `null` si ligne vide | — |
+| `getStack()` | les 8 lignes : `s[0]` = 1: (bas) … `s[7]` = 8: (haut) ; `null` si ligne vide — ne renvoie que les `size` entrées valides (pas de stale) | — |
 | `swap()` | échange **1: ↔ 2:** (≥2 valeurs) | `NOT ENOUGH VALUES` |
 | `drop()` | retire la **ligne du haut occupée** (la plus haute ligne non vide) | `EMPTY STACK` |
 | `roll()` | rotation **1:→2:→3:→1:** (≥3 valeurs) | `NOT ENOUGH VALUES` |
@@ -58,7 +58,7 @@ Chaque ligne montre les **8 lignes** de la pile, de `8:` (gauche) à `1:` (droit
 | 2 | push 5 | `· · · · · · · 10` | `· · · · · · 10 5` |
 | 3 | push 3 | `· · · · · · 10 5` | `· · · · · 10 5 3` |
 | 4 | **+** (5+3=8) | `· · · · · · 10 5 3` | `· · · · · · 10 8` |
-| 5 | push 2 | `· · · · · · 10 8` | `· · · · 10 8 2` |
+| 5 | push 2 | `· · · · · · 10 8` | `· · · · · 10 8 2` |
 | 6 | **×** (8×2=16) | `· · · · 10 8 2` | `· · · 10 16` |
 | 7 | push 4 | `· · · 10 16` | `· · 10 16 4` |
 | 8 | **÷** (16÷4=4) | `· · 10 16 4` | `· · 10 4` |
@@ -68,7 +68,7 @@ Chaque ligne montre les **8 lignes** de la pile, de `8:` (gauche) à `1:` (droit
 | 12 | push 8 | `· · · · · 10 −2 5` | `· · · · · 10 −2 5 8` |
 | 13 | push 2 | `· · · · · 10 −2 5 8` | `· · · 10 −2 5 8 2` |
 | 14 | push 4 | `· · · 10 −2 5 8 2` | `· · 10 −2 5 8 2 4` |
-| 15 | push 6 | `· · 10 −2 5 8 2 4` | `· 10 −2 5 8 2 4 6` |
+| 15 | push 6 | `· · 10 −2 5 8 2 4` | `· · 10 −2 5 8 2 4 6` |
 | 16 | push 3 | `· 10 −2 5 8 2 4 6` | `10 −2 5 8 2 4 6 3` ← **pile pleine (8/8)** |
 | 17 | push 9 | `10 −2 5 8 2 4 6 3` | `10 −2 5 8 2 4 6 3` — ⚠ **STACK FULL**, refusé |
 | 18 | **÷** (6÷3=2) | `10 −2 5 8 2 4 6 3` | `· 10 −2 5 8 2 4 2` |
@@ -104,7 +104,7 @@ npx serve .            # ou : python3 -m http.server 8000
 Ouvrir `http://localhost:8000/`.
 
 > ⚠️ La PWA / le service worker ne marchent **QUE sur http(s)** — pas sur `file://`.
-> Le `sw.js` est versionné (`rpn-station-v3`) : chaque mise à jour du code bump le numéro → **l'app installée se met à jour automatiquement** (pas besoin de désinstaller/réinstaller).
+> Le `sw.js` est versionné (`rpn-station-v6`) : chaque mise à jour du code bump le numéro → **l'app installée se met à jour automatiquement** (pas besoin de désinstaller/réinstaller).
 
 ## ⌨️ Raccourcis clavier (desktop)
 | Touche | Action |
@@ -127,3 +127,7 @@ sw.js          # service worker (offline, versionné)
 icon.svg       # icône PWA
 README.md
 ```
+
+## 🚨 Changelog
+- **v2.2 / sw v6** : correction `operate()` — nullification de la ligne du haut vacante (`rows[size-1] = null`) + `getStack()` ne renvoie que les entrées valides → **plus jamais de valeur *stale* affichée deux fois** (ex. `2:` et `3:` identiques après une op). `pop()` passe en décalage vers le bas (pop de pile propre).
+- **v2.1 / sw v5** : module `RPNStack` complet (8 lignes, push/operate sur 2:/1:, swap/drop/roll, erreurs `reason`).
