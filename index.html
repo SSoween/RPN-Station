@@ -131,7 +131,7 @@ body::after{
 }
 .key{
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
-  min-height:46px;
+  min-height:57.5px; /* +25% (46px → 57.5px) */
   border:1px solid var(--line); border-radius:12px; cursor:pointer;
   background:linear-gradient(180deg,var(--panel2),#161c40);
   color:var(--ink); font-family:var(--mono); font-size:clamp(20px,5vw,26px); font-weight:800;
@@ -200,7 +200,7 @@ body::after{
   </div>
 
   <div class="subbar">
-    <span>RPN&nbsp;<span class="ver">v2.3</span></span>
+    <span>RPN&nbsp;<span class="ver">v2.4</span></span>
     <span class="submsg" id="msgBar"></span>
     <span id="stackCount">STACK 0</span>
   </div>
@@ -264,7 +264,7 @@ body::after{
       <div class="sh"><span class="sk">⌫</span><span class="sh-val">effacement caract. par caract.</span></div>
       <div class="sh"><span class="sk">±</span><span class="sh-val">changer le signe</span></div>
     </div>
-    <div class="sheet-version">Deep Space · RPN v2.3</div>
+    <div class="sheet-version">Deep Space · RPN v2.4</div>
   </div>
 </div>
 
@@ -381,7 +381,7 @@ var RPNStack = (function(){
 
 (function(){
   "use strict";
-  var APP_VERSION = "2.3";
+  var APP_VERSION = "2.4";
   var stack = RPNStack;   // RPNStack est un objet déjà créé (pas de "new")
   var entry = '';
   var errorMsg = null;
@@ -615,7 +615,7 @@ var RPNStack = (function(){
     });
   }
 
-  // Diagnostic : si tu vois cette ligne dans la console, c'est bien la version 2.3 chargée.
+  // Diagnostic : si tu vois cette ligne dans la console, c'est bien la version 2.4 chargée.
   console.log('[RPN] version chargée = ' + APP_VERSION);
 
   render();
